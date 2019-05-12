@@ -11,6 +11,7 @@
 
 #include "input.h"
 #include "timing.h"
+#include "h093vao@login22:lrz/sys/tools/papi/5.6/phase2/include/papi.h"
 
 void usage(char *s) {
 	fprintf(stderr, "Usage: %s <input file> [result file]\n\n", s);
@@ -20,6 +21,15 @@ int main(int argc, char *argv[]) {
 	unsigned iter;
 	FILE *infile, *resfile;
 	char *resfilename;
+
+	//papi initialization
+	int numEvenets = 4;
+	long long values[4];
+	int events[4] = {PAPI_L2_TCM, PAPI_L2_TCA, PAPI_L3_TCM, PAPI_L3_TCA};
+
+	if (PAPI_start_counters(events, numEvents) != PAPI_OK) {
+        printf("PAPI error: %d\n", 1);
+    }
 
 	// algorithmic parameters
 	algoparam_t param;
@@ -103,15 +113,25 @@ int main(int argc, char *argv[]) {
 			switch (param.algorithm) {
 
 			case 0: // JACOBI
-
+				
 				relax_jacobi(param.u, param.uhelp, np, np);
 				residual = residual_jacobi(param.u, np, np);
+
+				if ( PAPI_stop_counters(values, numEvents) != PAPI_OK) {
+					("PAPI error: %d\n", 1);
+				}
+
 				break;
 
 			case 1: // GAUSS
 
 				relax_gauss(param.u, np, np);
 				residual = residual_gauss(param.u, param.uhelp, np, np);
+
+				if ( PAPI_stop_counters(values, numEvents) != PAPI_OK) {
+					("PAPI error: %d\n", 1);
+				}
+
 				break;
 			}
 
@@ -137,7 +157,11 @@ int main(int argc, char *argv[]) {
 		fprintf(stderr, "Resolution: %5u, ", param.act_res);
 		fprintf(stderr, "Time: %04.3f ", runtime);
 		fprintf(stderr, "(%3.3f GFlop => %6.2f MFlop/s, ", flop / 1000000000.0, flop / runtime / 1000000);
-		fprintf(stderr, "residual %f, %d iterations)\n", residual, iter);
+		fprintf(stderr, "residual %f, %d iterations)", residual, iter);
+		
+		//papi results
+		fprintf(stderr, "L2 cache misses: %d, L2 total cache accesses: %d", values[0], values[1]);
+		fprintf(stderr, "L3 cache misses: %d, L3 total cache accesses: %d\n", values[2], values[3]);
 
 		// for plot...
 		time[experiment]=runtime;
