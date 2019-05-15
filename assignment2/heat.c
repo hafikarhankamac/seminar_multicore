@@ -11,7 +11,11 @@
 
 #include "input.h"
 #include "timing.h"
-#include "h093vao@login22:lrz/sys/tools/papi/5.6/phase2/include/papi.h"
+//#include "papi.h"
+
+//#define NUM_EVENTS 4
+//#define ERROR_RETURN(retval) { fprintf(stderr, "Error %d %s:line %d: \n", retval,__FILE__,__LINE__);  exit(retval); }
+
 
 void usage(char *s) {
 	fprintf(stderr, "Usage: %s <input file> [result file]\n\n", s);
@@ -21,15 +25,6 @@ int main(int argc, char *argv[]) {
 	unsigned iter;
 	FILE *infile, *resfile;
 	char *resfilename;
-
-	//papi initialization
-	int numEvenets = 4;
-	long long values[4];
-	int events[4] = {PAPI_L2_TCM, PAPI_L2_TCA, PAPI_L3_TCM, PAPI_L3_TCA};
-
-	if (PAPI_start_counters(events, numEvents) != PAPI_OK) {
-        printf("PAPI error: %d\n", 1);
-    }
 
 	// algorithmic parameters
 	algoparam_t param;
@@ -42,6 +37,30 @@ int main(int argc, char *argv[]) {
 	int resolution[1000];
 	int experiment=0;
 
+	//papi initialization
+	/*
+	int retval;
+	int event_Set = PAPI_NULL;
+	long long values[NUM_EVENTS] = {0,0,0,0};
+
+	if ((retval = PAPI_library_init(PAPI_VER_CURRENT)) != PAPI_VER_CURRENT)
+	ERROR_RETURN(retval);
+
+	if ((retval = PAPI_create_eventset(&event_Set)) != PAPI_OK)
+	ERROR_RETURN(retval);
+
+	if ((retval = PAPI_add_event(event_Set, PAPI_L2_TCM)) != PAPI_OK)
+	ERROR_RETURN(retval);
+
+	if ((retval = PAPI_add_event(event_Set, PAPI_L2_TCA)) != PAPI_OK)
+	ERROR_RETURN(retval);
+
+	if ((retval = PAPI_add_event(event_Set, PAPI_L3_TCM)) != PAPI_OK)
+	ERROR_RETURN(retval);
+
+	if ((retval = PAPI_add_event(event_Set, PAPI_L3_TCA)) != PAPI_OK)
+	ERROR_RETURN(retval);
+	*/
 	// check arguments
 	if (argc < 2) {
 		usage(argv[0]);
@@ -87,7 +106,6 @@ int main(int argc, char *argv[]) {
 
 	// loop over different resolutions
 	while (1) {
-
 		// free allocated memory of previous experiment
 		if (param.u != 0)
 			finalize(&param);
@@ -108,18 +126,24 @@ int main(int argc, char *argv[]) {
 		residual = 999999999;
 
 		iter = 0;
+		//double cache_misses[2] = {0,0};
 		while (1) {
 
 			switch (param.algorithm) {
 
 			case 0: // JACOBI
 				
+				//if ((retval = PAPI_start(event_Set)) != PAPI_OK)
+				//ERROR_RETURN(retval);
+
 				relax_jacobi(param.u, param.uhelp, np, np);
 				residual = residual_jacobi(param.u, np, np);
 
-				if ( PAPI_stop_counters(values, numEvents) != PAPI_OK) {
-					("PAPI error: %d\n", 1);
-				}
+				//cache_misses[0] += (double) values[0] / values[1];
+				//cache_misses[1] += (double) values[2] / values[3];
+
+				//if ((retval = PAPI_stop(event_Set, values)) != PAPI_OK)
+				//ERROR_RETURN(retval);
 
 				break;
 
@@ -127,11 +151,6 @@ int main(int argc, char *argv[]) {
 
 				relax_gauss(param.u, np, np);
 				residual = residual_gauss(param.u, param.uhelp, np, np);
-
-				if ( PAPI_stop_counters(values, numEvents) != PAPI_OK) {
-					("PAPI error: %d\n", 1);
-				}
-
 				break;
 			}
 
@@ -157,12 +176,9 @@ int main(int argc, char *argv[]) {
 		fprintf(stderr, "Resolution: %5u, ", param.act_res);
 		fprintf(stderr, "Time: %04.3f ", runtime);
 		fprintf(stderr, "(%3.3f GFlop => %6.2f MFlop/s, ", flop / 1000000000.0, flop / runtime / 1000000);
-		fprintf(stderr, "residual %f, %d iterations)", residual, iter);
+		fprintf(stderr, "residual %f, %d iterations)\n", residual, iter);
+		//fprintf(stderr, "Resolution: %5u, Miss Rate: L2 %f, L3 %f\n", param.act_res, cache_misses[0]/iter, cache_misses[1]/iter);
 		
-		//papi results
-		fprintf(stderr, "L2 cache misses: %d, L2 total cache accesses: %d", values[0], values[1]);
-		fprintf(stderr, "L3 cache misses: %d, L3 total cache accesses: %d\n", values[2], values[3]);
-
 		// for plot...
 		time[experiment]=runtime;
 		floprate[experiment]=flop / runtime / 1000000;
