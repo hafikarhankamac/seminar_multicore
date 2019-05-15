@@ -35,6 +35,8 @@ int initialize( algoparam_t *param )
     (param->uvis)  = (double*)calloc( sizeof(double),
 				      (param->visres+2) *
 				      (param->visres+2) );
+    //param->diffs = 0;//(double*)calloc(sizeof(double, np * np));
+    param->ahead = (double*)calloc( sizeof(double),np*np );
   
 
     if( !(param->u) || !(param->uhelp) || !(param->uvis) )
@@ -126,6 +128,10 @@ int finalize( algoparam_t *param )
     if( param->uhelp ) {
 	free(param->uhelp);
 	param->uhelp = 0;
+    }
+    if( param->ahead ) {
+	free(param->ahead);
+	param->ahead = 0;
     }
 
     if( param->uvis ) {

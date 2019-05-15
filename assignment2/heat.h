@@ -31,7 +31,8 @@ typedef struct
 
     unsigned visres;        // visualization resolution
   
-    double *u, *uhelp;
+  double *u, *uhelp;
+  double *ahead;
     double *uvis;
 
     unsigned   numsrcs;     // number of heat sources
@@ -59,8 +60,14 @@ void relax_gauss( double *u,
 // Jacobi: relax_jacobi.c
 double residual_jacobi( double *u,
 			unsigned sizex, unsigned sizey );
+double residual_jacobi_fast(double *u, double *uahead,
+			    unsigned sizex, unsigned sizey );
 void relax_jacobi( double *u, double *utmp,
-		   unsigned sizex, unsigned sizey ); 
+		   unsigned sizex, unsigned sizey );
+
+void relax_jacobi_fast( double *u, double *utmp,
+			unsigned sizex, unsigned sizey );
+
 
 
 #endif // JACOBI_H_INCLUDED
