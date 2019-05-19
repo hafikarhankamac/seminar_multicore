@@ -7,18 +7,55 @@
 
 #include "heat.h"
 
-unsigned int blocksize = 2;
+//#define BLOCK_SIZE 50
+#define BLOCK_SIZE 100
+
+double residual_jacobi_blocked(double *u, unsigned sizex, unsigned sizey)
+{
+  unsigned i, j, k;
+  double unew, diff, sum = 0.0;
+  
+  for (i = 1; i < sizey - 1; i++) {
+    for(k = 1; k < sizex - 1; k += BLOCK_SIZE/2) {
+      for (j = k; j < k + BLOCK_SIZE/2 ; j++) {
+	unew = 0.25 * (u[i * sizex + (j - 1)] +  // left
+		       u[i * sizex + (j + 1)] +  // right
+		       u[(i - 1) * sizex + j] +  // top
+		       u[(i + 1) * sizex + j]); // bottom
+	diff = unew - u[i * sizex + j];
+	sum += diff * diff;
+      }
+    }
+  }
+  return sum;
+}
+
+void relax_jacobi_fast_blocked(double *u, double *utmp, unsigned sizex, unsigned sizey) {
+  int i, j, k, l;
+  for (i = 1; i < sizey - 1; i++) {
+    for(k = 1; k < sizex - 1; k += BLOCK_SIZE) {     
+      for(j = k; j < k + BLOCK_SIZE; j++) {
+	utmp[i * sizex + j] = u[(i - 1) * sizex + j] + u[(i + 1) * sizex + j];
+      }
+      for(j = k; j < k + BLOCK_SIZE; j++) {
+	utmp[i * sizex + j] +=  u[i * sizex + (j + 1)];  // right
+      }
+      for(j = k; j < k + BLOCK_SIZE; j++) {
+	utmp[i * sizex + j] +=  u[i * sizex + (j - 1)];  // left
+	utmp[i * sizex + j] *=  0.25;
+      }
+    }
+  }
+}
 
 /*
  * Residual (length of error vector)
  * between current solution and next after a Jacobi step
  */
 double residual_jacobi(double *u, unsigned sizex, unsigned sizey) {
-	unsigned i, j, ii, jj;
+	unsigned i, j;
 	double unew, diff, sum = 0.0;
 
-	/*
-	// non-blocked
 	for (j = 1; j < sizex - 1; j++) {
 		for (i = 1; i < sizey - 1; i++) {
 			unew = 0.25 * (u[i * sizex + (j - 1)] +  // left
@@ -30,77 +67,6 @@ double residual_jacobi(double *u, unsigned sizex, unsigned sizey) {
 			sum += diff * diff;
 		}
 	}
-	*/
-
-	/*
-	// 1D-blocked
-	for (ii = 1; ii < sizey - 1; ii += blocksize) {
-		for (j = 1; j < sizex - 1; j++) {
-			for (i = ii; i < ii + blocksize; i++) {
-				unew = 0.25 * (u[i * sizex + (j - 1)] +  // left
-							u[i * sizex + (j + 1)] +  // right
-							u[(i - 1) * sizex + j] +  // top
-							u[(i + 1) * sizex + j]); // bottom
-
-				diff = unew - u[i * sizex + j];
-				sum += diff * diff;
-			}
-		}
-	}
-	*/
-
-	// 1D-blocked with loop interchange
-	for (ii = 1; ii < sizey - 1; ii += blocksize) {
-		for (i = ii; i < ii + blocksize; i++) {
-			for (j = 1; j < sizex - 1; j++) {
-				unew = 0.25 * (u[i * sizex + (j - 1)] +  // left
-							u[i * sizex + (j + 1)] +  // right
-							u[(i - 1) * sizex + j] +  // top
-							u[(i + 1) * sizex + j]); // bottom
-
-				diff = unew - u[i * sizex + j];
-				sum += diff * diff;
-			}
-		}
-	}
-
-	/*
-	// 2D-blocked
-	for (jj = 1; jj < sizex - 1; jj += blocksize) {
-		for (ii = 1; ii < sizey - 1; ii += blocksize) {
-			for (j = jj; j < jj + blocksize; j++) {
-				for (i = ii; i < ii + blocksize; i++) {
-					unew = 0.25 * (u[i * sizex + (j - 1)] +  // left
-							u[i * sizex + (j + 1)] +  // right
-							u[(i - 1) * sizex + j] +  // top
-							u[(i + 1) * sizex + j]); // bottom
-
-					diff = unew - u[i * sizex + j];
-					sum += diff * diff;
-				}
-			}
-		}
-	}
-	*/
-
-	/*
-	// 2D-blocked with loop interchange
-	for (ii = 1; ii < sizey - 1; ii += blocksize) {
-		for (jj = 1; jj < sizex - 1; jj += blocksize) {
-			for (i = ii; i < ii + blocksize; i++) {
-				for (j = jj; j < jj + blocksize; j++) {
-					unew = 0.25 * (u[i * sizex + (j - 1)] +  // left
-							u[i * sizex + (j + 1)] +  // right
-							u[(i - 1) * sizex + j] +  // top
-							u[(i + 1) * sizex + j]); // bottom
-
-					diff = unew - u[i * sizex + j];
-					sum += diff * diff;
-				}
-			}
-		}
-	}
-	*/
 
 	return sum;
 }
@@ -109,10 +75,8 @@ double residual_jacobi(double *u, unsigned sizex, unsigned sizey) {
  * One Jacobi iteration step
  */
 void relax_jacobi(double *u, double *utmp, unsigned sizex, unsigned sizey) {
-	int i, j, ii, jj;
+	int i, j;
 
-	/*
-	// non-blocked
 	for (j = 1; j < sizex - 1; j++) {
 		for (i = 1; i < sizey - 1; i++) {
 			utmp[i * sizex + j] = 0.25 * (u[i * sizex + (j - 1)] +  // left
@@ -121,120 +85,12 @@ void relax_jacobi(double *u, double *utmp, unsigned sizex, unsigned sizey) {
 						u[(i + 1) * sizex + j]); // bottom
 		}
 	}
-	*/
-
-	/*
-	// 1D-blocked
-	for (ii = 1; ii < sizey - 1; ii += blocksize) {
-		for (j = 1; j < sizex - 1; j++) {
-			for (i = ii; i < ii + blocksize; i++) {
-				utmp[i * sizex + j] = 0.25 * (u[i * sizex + (j - 1)] +  // left
-							u[i * sizex + (j + 1)] +  // right
-							u[(i - 1) * sizex + j] +  // top
-							u[(i + 1) * sizex + j]); // bottom
-			}
-		}
-	}
-	*/
-
-	// 1D-blocked with loop interchange
-	for (ii = 1; ii < sizey - 1; ii += blocksize) {
-		for (i = ii; i < ii + blocksize; i++) {
-			for (j = 1; j < sizex - 1; j++) {
-				utmp[i * sizex + j] = 0.25 * (u[i * sizex + (j - 1)] +  // left
-							u[i * sizex + (j + 1)] +  // right
-							u[(i - 1) * sizex + j] +  // top
-							u[(i + 1) * sizex + j]); // bottom
-			}
-		}
-	}
-
-	/*
-	// 2D-blocked
-	for (jj = 1; jj < sizex - 1; jj += blocksize) {
-		for (ii = 1; ii < sizey - 1; ii += blocksize) {
-			for (j = jj; j < jj + blocksize; j++) {
-				for (i = ii; i < ii + blocksize; i++) {
-					utmp[i * sizex + j] = 0.25 * (u[i * sizex + (j - 1)] +  // left
-								u[i * sizex + (j + 1)] +  // right
-								u[(i - 1) * sizex + j] +  // top
-								u[(i + 1) * sizex + j]); // bottom
-				}
-			}
-		}
-	}
-	*/
-
-	/*
-	// 2D-blocked with loop interchange
-	for (ii = 1; ii < sizey - 1; ii += blocksize) {
-		for (jj = 1; jj < sizex - 1; jj += blocksize) {
-			for (i = ii; i < ii + blocksize; i++) {
-				for (j = jj; j < jj + blocksize; j++) {
-					utmp[i * sizex + j] = 0.25 * (u[i * sizex + (j - 1)] +  // left
-								u[i * sizex + (j + 1)] +  // right
-								u[(i - 1) * sizex + j] +  // top
-								u[(i + 1) * sizex + j]); // bottom
-				}
-			}
-		}
-	}
-	*/
 
 	// copy from utmp to u
 
-	/*
-	// non-blocked
 	for (j = 1; j < sizex - 1; j++) {
 		for (i = 1; i < sizey - 1; i++) {
 			u[i * sizex + j] = utmp[i * sizex + j];
 		}
 	}
-	*/
-
-	/*
-	// 1D-blocked
-	for (ii = 1; ii < sizey - 1; ii += blocksize) {
-		for (j = 1; j < sizex - 1; j++) {
-			for (i = ii; i < ii + blocksize; i++) {
-				u[i * sizex + j] = utmp[i * sizex + j];
-			}
-		}
-	}
-	*/
-
-	// 1D-blocked with loop interchange
-	for (ii = 1; ii < sizey - 1; ii += blocksize) {
-		for (i = ii; i < ii + blocksize; i++) {
-			for (j = 1; j < sizex - 1; j++) {
-				u[i * sizex + j] = utmp[i * sizex + j];
-			}
-		}
-	}
-
-	/*
-	// 2D-blocked
-	for (jj = 1; jj < sizex - 1; jj += blocksize) {
-		for (ii = 1; ii < sizey - 1; ii += blocksize) {
-			for (j = jj; j < jj + blocksize; j++) {
-				for (i = ii; i < ii + blocksize; i++) {
-					u[i * sizex + j] = utmp[i * sizex + j];
-				}
-			}
-		}
-	}
-	*/
-
-	/*
-	// 2D-blocked with loop interchange
-	for (ii = 1; ii < sizey - 1; ii += blocksize) {
-		for (jj = 1; jj < sizex - 1; jj += blocksize) {
-			for (i = ii; i < ii + blocksize; i++) {
-				for (j = jj; j < jj + blocksize; j++) {
-					u[i * sizex + j] = utmp[i * sizex + j];
-				}
-			}
-		}
-	}
-	*/
 }
