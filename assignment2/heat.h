@@ -62,5 +62,7 @@ double residual_jacobi( double *u,
 void relax_jacobi( double *u, double *utmp,
 		   unsigned sizex, unsigned sizey ); 
 
-
+void relax_jacobi_fast_blocked( double *u, double *utmp,
+			unsigned sizex, unsigned sizey);
+double residual_jacobi_blocked(double *u, unsigned sizex, unsigned sizey);
 #endif // JACOBI_H_INCLUDED
