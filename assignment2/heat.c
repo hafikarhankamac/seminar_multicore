@@ -8,13 +8,13 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-
 #include "input.h"
 #include "timing.h"
-//#include "papi.h"
+#include "papi.h"
+//#include <likwid.h>
 
-//#define NUM_EVENTS 4
-//#define ERROR_RETURN(retval) { fprintf(stderr, "Error %d %s:line %d: \n", retval,__FILE__,__LINE__);  exit(retval); }
+#define NUM_EVENTS 4
+#define ERROR_RETURN(retval) { fprintf(stderr, "Error %d %s:line %d: \n", retval,__FILE__,__LINE__);  exit(retval); }
 
 
 void usage(char *s) {
@@ -38,7 +38,7 @@ int main(int argc, char *argv[]) {
 	int experiment=0;
 
 	//papi initialization
-	/*
+
 	int retval;
 	int event_Set = PAPI_NULL;
 	long long values[NUM_EVENTS] = {0,0,0,0};
@@ -60,7 +60,7 @@ int main(int argc, char *argv[]) {
 
 	if ((retval = PAPI_add_event(event_Set, PAPI_L3_TCA)) != PAPI_OK)
 	ERROR_RETURN(retval);
-	*/
+
 	// check arguments
 	if (argc < 2) {
 		usage(argv[0]);
@@ -103,7 +103,6 @@ int main(int argc, char *argv[]) {
 	param.uvis = 0;
 
 	param.act_res = param.initial_res;
-
 	// loop over different resolutions
 	while (1) {
 		// free allocated memory of previous experiment
@@ -123,27 +122,37 @@ int main(int argc, char *argv[]) {
 
 		// starting time
 		runtime = wtime();
+		//LIKWID_MARKER_INIT;
 		residual = 999999999;
-
 		iter = 0;
-		//double cache_misses[2] = {0,0};
+		
+		double cache_misses[2] = {0,0};
+		//LIKWID_MARKER_START("Jacobi");
 		while (1) {
 
 			switch (param.algorithm) {
 
-			case 0: // JACOBI
+			case 0: // JACOBI;
 				
-				//if ((retval = PAPI_start(event_Set)) != PAPI_OK)
-				//ERROR_RETURN(retval);
+				if ((retval = PAPI_start(event_Set)) != PAPI_OK)
+				ERROR_RETURN(retval);
 
-				relax_jacobi(param.u, param.uhelp, np, np);
-				residual = residual_jacobi(param.u, np, np);
+ 				if (iter % 2 == 0) { // uhelp keeps the up-to-date value
+		    			relax_jacobi_fast_blocked(param.u, param.uhelp, np, np);
+		    			residual = residual_jacobi_blocked(param.uhelp, np, np);
+	  			} else { // u keeps the most up-to-date value
+	    				relax_jacobi_fast_blocked(param.uhelp, param.u, np, np);
+	    				residual = residual_jacobi_blocked(param.u, np, np);
+	  			}
+	
+				if((retval = PAPI_read(event_Set, values)) != PAPI_OK)
+				ERROR_RETURN(retval);
 
-				//cache_misses[0] += (double) values[0] / values[1];
-				//cache_misses[1] += (double) values[2] / values[3];
+				cache_misses[0] += (double) values[0] / values[1];
+				cache_misses[1] += (double) values[2] / values[3];
 
-				//if ((retval = PAPI_stop(event_Set, values)) != PAPI_OK)
-				//ERROR_RETURN(retval);
+				if ((retval = PAPI_stop(event_Set, values)) != PAPI_OK)
+				ERROR_RETURN(retval);
 
 				break;
 
@@ -155,7 +164,7 @@ int main(int argc, char *argv[]) {
 			}
 
 			iter++;
-
+			
 			// solution good enough ?
 			if (residual < 0.000005)
 				break;
@@ -168,17 +177,21 @@ int main(int argc, char *argv[]) {
 				fprintf(stderr, "residual %f, %d iterations\n", residual, iter);
 		}
 
+		if (iter % 2 != 0) //uhelp keeps the most recent value	
+			memcpy(param.u, param.uhelp, sizeof(double) * np * np);
 		// Flop count after <i> iterations
 		flop = iter * 11.0 * param.act_res * param.act_res;
 		// stopping time
 		runtime = wtime() - runtime;
-
+		//LIKWID_MARKER_STOP("Jacobi");
+		//LIKWID_MARKER_CLOSE;
 		fprintf(stderr, "Resolution: %5u, ", param.act_res);
 		fprintf(stderr, "Time: %04.3f ", runtime);
 		fprintf(stderr, "(%3.3f GFlop => %6.2f MFlop/s, ", flop / 1000000000.0, flop / runtime / 1000000);
 		fprintf(stderr, "residual %f, %d iterations)\n", residual, iter);
-		//fprintf(stderr, "Resolution: %5u, Miss Rate: L2 %f, L3 %f\n", param.act_res, cache_misses[0]/iter, cache_misses[1]/iter);
-		
+		fprintf(stderr, "Resolution: %5u, Miss Rate: L2 %f, L3 %f\n", param.act_res, cache_misses[0]/iter, cache_misses[1]/iter);
+	
+
 		// for plot...
 		time[experiment]=runtime;
 		floprate[experiment]=flop / runtime / 1000000;
@@ -189,6 +202,8 @@ int main(int argc, char *argv[]) {
 		param.act_res += param.res_step_size;
 		experiment++;
 	}
+
+	
 
 	for (i=0;i<experiment; i++){
 		printf("%5d; %5.3f; %5.3f\n", resolution[i], time[i], floprate[i]);
