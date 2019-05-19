@@ -109,7 +109,7 @@ int initialize( algoparam_t *param )
 	    }
 	}
     }
-
+    memcpy(param->uhelp, param->u, sizeof(double) * np * np);
     return 1;
 }
 
