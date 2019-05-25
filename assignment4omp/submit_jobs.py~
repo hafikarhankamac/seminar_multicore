@@ -1,0 +1,21 @@
+import os
+
+
+with open('runHEAT.scp', 'r') as f:
+    lines = f.readlines()
+
+for i in [1, 2, 4, 8, 12, 16, 24, 32, 48]:
+    filename = 'runHeat' + str(i) + '.scp' 
+    with open(filename, 'w') as of:
+        for line in lines:
+            newline = line[:-1]
+            if 'job_name' in line:
+                newline = line[:-1] + str(i)
+            elif 'output' in line:
+                newline = '#@ output = job' + str(i) + '.out'
+            elif 'error' in line:
+                newline = '#@ error = job' + str(i) + '.out'
+            elif 'OMP' in line:
+                newline = 'export OMP_NUM_THREADS=' + str(i)
+            of.write(newline + '\n')
+    os.system('llsubmit ' + filename)
