@@ -93,8 +93,12 @@ int main(int argc, char *argv[]) {
 		t0 = gettime();
 
 		for (iter = 0; iter < param.maxiter; iter++) {
+# ifndef BLOCKED
 		  residual = relax_jacobi(&(param.u), &(param.uhelp), param.diffs ,np, np);
-		  //residual = relax_jacobi_blocked(&(param.u), &(param.uhelp), np, np);
+#endif
+#ifdef BLOCKED
+		  residual = relax_jacobi_blocked(&(param.u), &(param.uhelp), np, np);
+#endif
 		}
 
 		t1 = gettime();
