@@ -18,20 +18,21 @@ double relax_jacobi( double **u1, double **utmp1,
   u=*u1;
   double unew, diff, sum=0.0;
 
-
+#pragma parallel 
+#pragma loop_count min(8)
   for( i=1; i<sizey-1; i++ ) {
-  	int ii=i*sizex;
-  	int iim1=(i-1)*sizex;
-  	int iip1=(i+1)*sizex;
+        int ii=i*sizex;
+        int iim1=(i-1)*sizex;
+        int iip1=(i+1)*sizex;
 #pragma ivdep
     for( j=1; j<sizex-1; j++ ){
        unew = 0.25 * (u[ ii+(j-1) ]+
-        		            u[ ii+(j+1) ]+
-        		            u[ iim1+j ]+
-        		            u[ iip1+j ]);
-		    diff = unew - u[ii + j];
-		    utmp[ii+j] = unew;
-		    sum += diff * diff;
+                                    u[ ii+(j+1) ]+
+                                    u[ iim1+j ]+
+                                    u[ iip1+j ]);
+                    diff = unew - u[ii + j];
+                    utmp[ii+j] = unew;
+                    sum += diff * diff;
 
        }
     }
@@ -40,5 +41,6 @@ double relax_jacobi( double **u1, double **utmp1,
   *utmp1=u;
   return(sum);
 }
+
 
 
