@@ -69,7 +69,7 @@ int main(int argc, char *argv[]) {
 	}
 
 	// check result file
-	sprintf(resfilename, "heat%d_%d.txt", param.coords[0], param.coords[1]);
+	sprintf(resfilename, "heat%d_%d.pgm", param.coords[0], param.coords[1]);
 
 	if (!(resfile = fopen(resfilename, "w"))) {
 		fprintf(stderr, "\nError: Cannot open \"%s\" for writing.\n\n", resfilename);
@@ -86,7 +86,7 @@ int main(int argc, char *argv[]) {
 		return 1;
 	}
 
-	print_params(&param);
+	if (param.rank==0) print_params(&param);
 	time = (double *) calloc(sizeof(double), (int) (param.max_res - param.initial_res + param.res_step_size) / param.res_step_size);
 
 	int exp_number = 0;
@@ -121,7 +121,12 @@ int main(int argc, char *argv[]) {
 			time[exp_number] = wtime();
 			t0 = gettime();
 		}
-
+		// Initialize rbuf for non-communicating procs
+		for(i = 0; i < param.rows; i++) param.rbuf[i] = param.u[(i+1)*(param.cols+2)]; //west
+		for(i = 0; i < param.rows; i++) param.rbuf[param.rows + i] = param.u[(i+1)*(param.cols+2)+param.cols+1]; //east
+		for(i = 0; i < param.cols; i++) param.rbuf[2 * param.rows + i] = param.u[i+1]; //north
+		for(i = 0; i < param.cols; i++) param.rbuf[param.cols + 2 * param.rows + i] = param.u[(param.rows+1)*(param.cols+2)+i+1]; //south*/
+		
 		for (iter = 0; iter < param.maxiter; iter++) {
 
 			for(i = 0; i < param.rows; i++) param.sbuf[i] = param.u[(i+1)*(param.cols+2)+1]; //west
@@ -131,11 +136,7 @@ int main(int argc, char *argv[]) {
 					
 			int counts[4] = {param.rows, param.rows, param.cols, param.cols};
 			int displs[4] = {0, param.rows, 2*param.rows, 2*param.rows + param.cols};
-			// Initialize rbuf
-			for(i = 0; i < param.rows; i++) param.rbuf[i] = param.u[(i+1)*(param.cols+2)]; //west
-			for(i = 0; i < param.rows; i++) param.rbuf[param.rows + i] = param.u[(i+1)*(param.cols+2)+param.cols+1]; //east
-			for(i = 0; i < param.cols; i++) param.rbuf[2 * param.rows + i] = param.u[i+1]; //north
-			for(i = 0; i < param.cols; i++) param.rbuf[param.cols + 2 * param.rows + i] = param.u[(param.rows+1)*(param.cols+2)+i+1]; //south*/
+			
 			MPI_Neighbor_alltoallv(param.sbuf, counts, displs, MPI_DOUBLE, param.rbuf, counts, displs, MPI_DOUBLE, comm);
 			for(i = 0; i < param.rows; i++) param.u[(i+1)*(param.cols+2)] = param.rbuf[i]; //west
 			for(i = 0; i < param.rows; i++) param.u[(i+1)*(param.cols+2)+param.cols+1] = param.rbuf[param.rows + i]; //east
