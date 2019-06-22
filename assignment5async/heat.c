@@ -168,8 +168,25 @@ int main(int argc, char *argv[]) {
 
 	coarsen(param.u, param.rows + 2, param.cols + 2, param.uvis, param.visres + 2, param.visres + 2);
 
-	//write_image(resfile, param.uvis, param.visres + 2, param.visres + 2);
+	int size_image = (param.visres+2) *
+					(param.visres+2);
+	
+	double *image = (double*)calloc( sizeof(double),
+				      (param.visres+2) *
+				      (param.visres+2) * param.dims[0] * param.dims[1]);
+
+	MPI_Gather(param.uvis, size_image, MPI_DOUBLE, image,
+			size_image, MPI_DOUBLE, 0, comm);
+	printf("Passed here\n");
+
+	if(param.rank == 0){
+		
+		write_image(resfile, image, (param.visres+2) * param.dims[0] ,(param.visres+2) * param.dims[1] );
+	}
+
+	
 	finalize(&param);
+	free(image);
 	MPI_Finalize();
 	return 0;
 }
