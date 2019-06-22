@@ -97,7 +97,7 @@ int main(int argc, char *argv[]) {
 
 			usage(argv[0]);
 		}
-		
+
 		for (i = 0; i < param.rows + 2; i++) {
 			for (j = 0; j < param.cols + 2; j++) {
 				param.uhelp[i * (param.cols + 2) + j] = param.u[i * (param.cols + 2) + j];
@@ -119,7 +119,8 @@ int main(int argc, char *argv[]) {
 		for(i = 0; i < param.cols; i++) param.rbuf[param.cols + 2 * param.rows + i] = param.u[(param.rows+1)*(param.cols+2)+i+1]; //south*/
 		
 		for (iter = 0; iter < param.maxiter; iter++) {
-			if (iter > 0) residual = relax_jacobi_outer(&(param.u), &(param.uhelp), param.cols+2, param.rows+2);
+			residual = relax_jacobi_outer(&(param.u), &(param.uhelp), param.cols+2, param.rows+2);
+			
 			for(i = 0; i < param.rows; i++) param.sbuf[i] = param.uhelp[(i+1)*(param.cols+2)+1]; //west
 			for(i = 0; i < param.rows; i++) param.sbuf[param.rows + i] = param.uhelp[(i+1)*(param.cols+2)+param.cols]; //east
 			for(i = 0; i < param.cols; i++) param.sbuf[2 * param.rows + i] = param.uhelp[param.cols+2+i+1]; //north
@@ -132,16 +133,17 @@ int main(int argc, char *argv[]) {
 			MPI_Ineighbor_alltoallv(param.sbuf, counts, displs,
                             MPI_DOUBLE, param.rbuf, counts,
                             displs, MPI_DOUBLE, comm, &request);
-			if (iter > 0) residual += relax_jacobi_inner(&(param.u), &(param.uhelp), param.cols+2, param.rows+2);
+
+			residual += relax_jacobi_inner(&(param.u), &(param.uhelp), param.cols+2, param.rows+2);
 			MPI_Wait(&request, &status);
 			
-			if (iter > 0) swap(&(param.u), &(param.uhelp));
+			swap(&(param.u), &(param.uhelp));
 			for(i = 0; i < param.rows; i++) param.u[(i+1)*(param.cols+2)] = param.rbuf[i]; //west
 			for(i = 0; i < param.rows; i++) param.u[(i+1)*(param.cols+2)+param.cols+1] = param.rbuf[param.rows + i]; //east
 			for(i = 0; i < param.cols; i++) param.u[i+1] = param.rbuf[2 * param.rows + i]; //north
 			for(i = 0; i < param.cols; i++) param.u[(param.rows+1)*(param.cols+2)+i+1] = param.rbuf[param.cols + 2 * param.rows + i]; //south*/
 		}
-		if (iter > 0) residual = relax_jacobi(&(param.u), &(param.uhelp), param.cols+2, param.rows+2);
+
 		double total_res;
 		MPI_Reduce(&residual, &total_res, 1, MPI_DOUBLE, MPI_SUM, 0, comm);
 

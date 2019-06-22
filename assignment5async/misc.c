@@ -101,7 +101,7 @@ int initialize( algoparam_t *param )
 	}
 
 	/* leftmost column */
-	if(c == 0) for( j=1; j<nrows-1; j++ )
+	if(c == 0) for( j=0; j<nrows; j++ )
 	{
 	    dist = sqrt( pow(param->heatsrcs[i].posx, 2)+
 			 pow((double)(j+roffset)/(double)(np-1) -
@@ -117,7 +117,7 @@ int initialize( algoparam_t *param )
 	}
 
 	/* rightmost column */
-	if(c == (param->dims[0]-1)) for( j=1; j<nrows-1; j++ )
+	if(c == (param->dims[0]-1)) for( j=0; j<nrows; j++ )
 	{
 	    dist = sqrt( pow(1-param->heatsrcs[i].posx, 2)+
 			 pow((double)(roffset+j)/(double)(np-1) -

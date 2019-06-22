@@ -1,5 +1,5 @@
 CC =  gcc
-CFLAGS = -fopenmp -O3 
+CFLAGS = -O3 
 
 MPICC = mpicc.mpich
 
