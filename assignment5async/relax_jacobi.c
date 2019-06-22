@@ -6,6 +6,7 @@
  */
 
 #include "heat.h"
+#include "omp.h"
 
 
 double relax_jacobi( double **u1, double **utmp1,
@@ -18,7 +19,7 @@ double relax_jacobi( double **u1, double **utmp1,
   u=*u1;
   double unew, diff, sum=0.0;
 
-
+#pragma omp parallel for firstprivate(sizey, j, unew, diff, sizex) reduction(+:sum)
   for( i=1; i<sizey-1; i++ ) {
   	int ii=i*sizex;
   	int iim1=(i-1)*sizex;
@@ -52,6 +53,7 @@ double relax_jacobi_outer( double **u1, double **utmp1, unsigned sizex, unsigned
   int iboundaries[] = {1, sizey-2};
   int jboundaries[] = {1, sizex-2};
 
+#pragma omp parallel for firstprivate(sizey, j, unew, diff, sizex) reduction(+:sum)
   for (m=0; m < 2; ++m) {
     i = iboundaries[m];
     int ii=i*sizex;
@@ -69,7 +71,7 @@ double relax_jacobi_outer( double **u1, double **utmp1, unsigned sizex, unsigned
 
        }
     }
-
+#pragma omp parallel for firstprivate(sizey, m, unew, diff, sizex) reduction(+:sum)
   for( i=2; i<sizey-2; i++ ) {
   	int ii=i*sizex;
   	int iim1=(i-1)*sizex;
@@ -97,7 +99,7 @@ double relax_jacobi_inner( double **u1, double **utmp1, unsigned sizex, unsigned
   u=*u1;
   double unew, diff, sum=0.0;
 
-
+#pragma omp parallel for firstprivate(sizey, j, unew, diff, sizex) reduction(+:sum)
   for( i=2; i<sizey-2; i++ ) {
   	int ii=i*sizex;
   	int iim1=(i-1)*sizex;

@@ -69,7 +69,7 @@ int main(int argc, char *argv[]) {
 	}
 
 	// check result file
-	sprintf(resfilename, "heat%d_%d.pgm", param.coords[0], param.coords[1]);
+	sprintf(resfilename, "heat%d_%d.ppm", param.coords[0], param.coords[1]);
 
 	if (!(resfile = fopen(resfilename, "w"))) {
 		fprintf(stderr, "\nError: Cannot open \"%s\" for writing.\n\n", resfilename);
@@ -97,16 +97,7 @@ int main(int argc, char *argv[]) {
 
 			usage(argv[0]);
 		}
-		/*FILE *fp;
-   		fp = fopen(resfilename, "w");
-		for (i = 0; i < param.rows + 2; i++) {
-			for (j = 0; j < param.cols + 2; j++) {
-				fprintf(fp, "%f ", param.u[i * (param.cols + 2) + j]);
-			}
-			fprintf(fp, "\n");
-		}
-		fclose(fp);
-		exit(0);*/
+		
 		for (i = 0; i < param.rows + 2; i++) {
 			for (j = 0; j < param.cols + 2; j++) {
 				param.uhelp[i * (param.cols + 2) + j] = param.u[i * (param.cols + 2) + j];
@@ -175,7 +166,7 @@ int main(int argc, char *argv[]) {
 
 	coarsen(param.u, param.rows + 2, param.cols + 2, param.uvis, param.visres + 2, param.visres + 2);
 
-	write_image(resfile, param.uvis, param.visres + 2, param.visres + 2);
+	//write_image(resfile, param.uvis, param.visres + 2, param.visres + 2);
 	finalize(&param);
 	MPI_Finalize();
 	return 0;
