@@ -36,7 +36,11 @@ int initialize( algoparam_t *param )
 	int coffset = param->cols * c;
 	if (param->coords[1] == (param->dims[1]-1))  param->rows += param->act_res % param->dims[1];
 	if (param->coords[0] == (param->dims[0]-1))  param->cols += param->act_res % param->dims[0];
-	//if (param->coords[0] > 0) coffset++;
+	// Image initialisation
+	param->visrows = param->visres / param->dims[1];
+	param->viscols = param->visres / param->dims[0];
+	if (param->coords[1] == (param->dims[1]-1))  param->visrows += param->visres % param->dims[1];
+	if (param->coords[0] == (param->dims[0]-1))  param->viscols += param->visres % param->dims[0];
 
 	int nrows = param->rows + 2;
 	int ncols = param->cols + 2;
@@ -48,8 +52,8 @@ int initialize( algoparam_t *param )
     (param->u)     = (double*)malloc( sizeof(double)* nrows*ncols);
     (param->uhelp) = (double*)malloc( sizeof(double)* nrows*ncols );
     (param->uvis)  = (double*)calloc( sizeof(double),
-				      (param->visres+2) *
-				      (param->visres+2) );
+				      (param->visrows+2) *
+				      (param->viscols+2) );
 
     for (i=0;i<nrows;i++){
     	for (j=0;j<ncols;j++){

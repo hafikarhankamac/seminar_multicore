@@ -12,6 +12,6 @@ heat : heat.o input.o misc.o timing.o relax_jacobi.o
 	$(MPICC) $(CFLAGS) -c -o $@ $<
 
 clean:
-	rm -f *.o heat *~ *.ppm
+	rm -f *.o heat *~ *.ppm *.pgm
 
 remake : clean all

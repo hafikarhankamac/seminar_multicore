@@ -43,6 +43,7 @@ typedef struct
     int north, south, east, west;
     int rows, cols;
     double *sbuf, *rbuf;
+    int visrows, viscols;
 }
 algoparam_t;
 

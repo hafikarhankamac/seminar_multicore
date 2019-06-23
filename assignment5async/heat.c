@@ -40,7 +40,8 @@ int main(int argc, char *argv[]) {
 	param.periods[1] = 0;
 
 	// set the visualization resolution
-	param.visres = 100;
+	param.visres = 500;
+
 
 	// check arguments
 	if (argc < 4) {
@@ -69,7 +70,7 @@ int main(int argc, char *argv[]) {
 	}
 
 	// check result file
-	sprintf(resfilename, "heat%d_%d.ppm", param.coords[0], param.coords[1]);
+	sprintf(resfilename, "heat%d_%d.pgm", param.coords[0], param.coords[1]);
 
 	if (!(resfile = fopen(resfilename, "w"))) {
 		fprintf(stderr, "\nError: Cannot open \"%s\" for writing.\n\n", resfilename);
@@ -166,27 +167,10 @@ int main(int argc, char *argv[]) {
 
 	param.act_res = param.act_res - param.res_step_size;
 
-	coarsen(param.u, param.rows + 2, param.cols + 2, param.uvis, param.visres + 2, param.visres + 2);
-
-	int size_image = (param.visres+2) *
-					(param.visres+2);
-	
-	double *image = (double*)calloc( sizeof(double),
-				      (param.visres+2) *
-				      (param.visres+2) * param.dims[0] * param.dims[1]);
-
-	MPI_Gather(param.uvis, size_image, MPI_DOUBLE, image,
-			size_image, MPI_DOUBLE, 0, comm);
-	printf("Passed here\n");
-
-	if(param.rank == 0){
-		
-		write_image(resfile, image, (param.visres+2) * param.dims[0] ,(param.visres+2) * param.dims[1] );
-	}
-
+	coarsen(param.u, param.cols + 2, param.rows + 2, param.uvis, param.viscols + 2, param.visrows + 2);
+	write_image(resfile, param.uvis, param.viscols+2, param.visrows+2);
 	
 	finalize(&param);
-	free(image);
 	MPI_Finalize();
 	return 0;
 }
