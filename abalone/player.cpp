@@ -19,7 +19,12 @@
 #include "search.h"
 #include "eval.h"
 #include "network.h"
+#include "mpi.h"
 
+#define TAG_RESULT 0
+#define TAG_ASK_FOR_JOB 1
+#define TAG_JOB_DATA 2
+#define TAG_STOP 3
 
 /* Global, static vars */
 NetworkLoop l;
@@ -51,6 +56,7 @@ int lport = 23412;
 /* change evaluation after move? */
 bool changeEval = true;
 
+int  numtasks, rank;
 
 
 
@@ -90,8 +96,8 @@ void MyDomain::sendBoard(Board* b)
 void MyDomain::received(char* str)
 {
     if (strncmp(str, "quit", 4)==0) {
-	l.exit();
-	return;
+    	l.exit();
+    	return;
     }
 
     if (strncmp(str, "pos ", 4)!=0) return;
@@ -101,73 +107,146 @@ void MyDomain::received(char* str)
 
     myBoard.setState(str+4);
     if (verbose) {
-	printf("\n\n==========================================\n%s", str+4);
+	       printf("\n\n==========================================\n%s", str+4);
     }
 
     int state = myBoard.validState();
-    if ((state != Board::valid1) && 
-	(state != Board::valid2)) {
-	printf("%s\n", Board::stateDescription(state));
-	switch(state) {
-	    case Board::timeout1:
-	    case Board::timeout2:
-	    case Board::win1:
-	    case Board::win2:
-		l.exit();
-	    default:
-		break;
-	}
-	return;
+    if ((state != Board::valid1) && (state != Board::valid2)) {
+    	printf("%s\n", Board::stateDescription(state));
+    	switch(state) {
+    	    case Board::timeout1:
+    	    case Board::timeout2:
+    	    case Board::win1:
+    	    case Board::win2:
+            int i;
+            for (i = 1; i < numtasks; i++) {
+                MPI_Recv(str, 0, MPI_CHAR, i, TAG_ASK_FOR_JOB, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+                MPI_Send(str, 0, MPI_CHAR, i, TAG_STOP, MPI_COMM_WORLD);
+            }
+    		l.exit();
+    	    default:
+    		break;
+    	}
+    	return;
     }
 
     if (myBoard.actColor() & myColor) {
-	struct timeval t1, t2;
+    	struct timeval t1, t2;
 
-	gettimeofday(&t1,0);
-	Move m = myBoard.bestMove();
-	gettimeofday(&t2,0);
+    	gettimeofday(&t1,0);
 
-	int msecsPassed =
-	    (1000* t2.tv_sec + t2.tv_usec / 1000) -
-	    (1000* t1.tv_sec + t1.tv_usec / 1000);
+        ////////////////////////////////MPI
+        MoveList list;
+        Move m;
+        myBoard.generateMoves(list);
+        int i;
 
-	printf("%s ", (myColor == Board::color1) ? "O":"X");
-	if (m.type == Move::none) {
-	    printf(" can not draw any move ?! Sorry.\n");
-	    return;
-	}
-	printf("draws '%s' (after %d.%03d secs)...\n",
-	       m.name(), msecsPassed/1000, msecsPassed%1000);
+        MPI_Status status, status2;
+        bool is_next_move = true;
+        int best_eval = -99999;
+        char tmp_buf [2];
+        int tasks_created = 0;
+        int tasks_completed = 0;
+        int send_array[3];
+        while(true)
+        {
+            //TODO how to exit? --after receiving x messages
+            MPI_Probe(MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
+            int slave_rank = status.MPI_SOURCE;
+            if (status.MPI_TAG == TAG_ASK_FOR_JOB)
+            {
+                MPI_Recv(tmp_buf, 0, MPI_CHAR, slave_rank, TAG_ASK_FOR_JOB, MPI_COMM_WORLD, &status2);
 
-	myBoard.playMove(m, msecsPassed);
-	sendBoard(&myBoard);
+                if (is_next_move && list.getNext(m))
+                {
 
-	if (changeEval)
-	    ev.changeEvaluation();
+                    MPI_Send(str, 1024, MPI_CHAR, slave_rank, TAG_JOB_DATA, MPI_COMM_WORLD);//board
+                    send_array[0] = (int)m.field;
+                    send_array[1] = (int)m.direction;
+                    send_array[2] = m.type;
+                    MPI_Send(send_array, 3, MPI_INT, slave_rank, TAG_JOB_DATA, MPI_COMM_WORLD);//board
+                    tasks_created++;
+                }
+                else
+                {
+                    is_next_move = false;
+                    //TODO needed??
+                    // send stop msg to slave
+                    //MPI_Send (/*...*/ , slave_rank , TAG_STOP , MPI_COMM_WORLD);
+                }
+            }
+            else if (status.MPI_TAG == TAG_RESULT)
+            {
+                int worker_eval;
+                MPI_Recv(&worker_eval, 1, MPI_INT, slave_rank, TAG_RESULT, MPI_COMM_WORLD, &status);
+                MPI_Recv(send_array, 3, MPI_INT, slave_rank, TAG_RESULT, MPI_COMM_WORLD, &status);
 
-	/* stop player at win position */
-	int state = myBoard.validState();
-	if ((state != Board::valid1) && 
-	    (state != Board::valid2)) {
-	    printf("%s\n", Board::stateDescription(state));
-	    switch(state) {
-		case Board::timeout1:
-		case Board::timeout2:
-		case Board::win1:
-		case Board::win2:
-		    l.exit();
-		default:
-		    break;
-	    }
-	}
+                if (worker_eval > best_eval)
+                {
+                    best_eval = worker_eval;
+                    m = Move((short)send_array[0], (unsigned char)send_array[1], (Move::MoveType)send_array[2]);
+                }
 
-	maxMoves--;
-	if (maxMoves == 0) {
-	    printf("Terminating because given number of moves drawn.\n");
-	    broadcast("quit\n");
-	    l.exit();
-	}
-    }    
+                tasks_completed++;
+                if(tasks_created == tasks_completed && !is_next_move)
+                {
+                    break;
+                }
+
+                // We got a result message
+                //xxMPI_Recv( result_data_buffer , /*...*/ , slave_rank , TAG_RESULT, MPI_COMM_WORLD , & stat2 );
+                /* put data from result_data_buffer into a global result */
+                /* mark slave with rank slave_rank as stopped */
+            }
+        }
+
+
+        ////////////////////////////////MPI
+
+    	//Move m = myBoard.bestMove();
+    	gettimeofday(&t2,0);
+
+    	int msecsPassed =
+    	    (1000* t2.tv_sec + t2.tv_usec / 1000) -
+    	    (1000* t1.tv_sec + t1.tv_usec / 1000);
+
+    	printf("%s ", (myColor == Board::color1) ? "O":"X");
+    	if (m.type == Move::none) {
+    	    printf(" can not draw any move ?! Sorry.\n");
+    	    return;
+    	}
+    	printf("draws '%s' (after %d.%03d secs)...\n",
+    	       m.name(), msecsPassed/1000, msecsPassed%1000);
+
+    	myBoard.playMove(m, msecsPassed);
+    	sendBoard(&myBoard);
+
+    	if (changeEval)
+    	    ev.changeEvaluation();
+
+    	/* stop player at win position */
+    	int state = myBoard.validState();
+    	if ((state != Board::valid1) &&
+    	    (state != Board::valid2)) {
+    	    printf("%s\n", Board::stateDescription(state));
+    	    switch(state) {
+    		case Board::timeout1:
+    		case Board::timeout2:
+    		case Board::win1:
+    		case Board::win2:
+    		    l.exit();
+    		default:
+    		    break;
+    	    }
+    	}
+
+    	maxMoves--;
+    	if (maxMoves == 0) {
+    	    printf("Terminating because given number of moves drawn.\n");
+    	    broadcast("quit\n");
+    	    l.exit();
+    	}
+    }
 }
 
 void MyDomain::newConnection(Connection* c)
@@ -224,7 +303,7 @@ void parseArgs(int argc, char* argv[])
 	arg++;
 	if (strcmp(argv[arg],"-h")==0 ||
 	    strcmp(argv[arg],"--help")==0) printHelp(argv[0], true);
-	if (strncmp(argv[arg],"-v",2)==0) {   
+	if (strncmp(argv[arg],"-v",2)==0) {
 	    verbose = 1;
 	    while(argv[arg][verbose+1] == 'v') verbose++;
 	    continue;
@@ -270,10 +349,10 @@ void parseArgs(int argc, char* argv[])
 	    if (p) rport = p;
 	    continue;
 	}
-	
+
 	if (argv[arg][0] == 'X') {
 	    myColor = Board::color2;
-	    continue; 
+	    continue;
 	}
 	if (argv[arg][0] == 'O') {
 	    myColor = Board::color1;
@@ -292,6 +371,14 @@ void parseArgs(int argc, char* argv[])
 
 int main(int argc, char* argv[])
 {
+    // initialize MPI
+    int len;
+    char hostname[MPI_MAX_PROCESSOR_NAME];
+    MPI_Init(&argc,&argv);
+    MPI_Comm_size(MPI_COMM_WORLD,&numtasks);
+    MPI_Comm_rank(MPI_COMM_WORLD,&rank);
+    MPI_Get_processor_name(hostname, &len);
+
     parseArgs(argc, argv);
 
     SearchStrategy* ss = SearchStrategy::create(strategyNo);
@@ -302,11 +389,56 @@ int main(int argc, char* argv[])
     ss->setEvaluator(&ev);
     ss->registerCallbacks(new SearchCallbacks(verbose));
 
-    MyDomain d(lport);
-    l.install(&d);
+    MPI_Barrier(MPI_COMM_WORLD);
+    if(rank == 0)
+    {
+        MyDomain d(lport);
+        l.install(&d);
 
-    if (host) d.addConnection(host, rport);
+        if (host) d.addConnection(host, rport);
 
-    l.run();
+        l.run();
+    }
+    else
+    {
+        while(true)
+        {
+            MPI_Status status, status2;
+            char str[1024];
+            int recv_array[3];
+            MPI_Send(str , 0 , MPI_CHAR, 0, TAG_ASK_FOR_JOB , MPI_COMM_WORLD ) ;
+            MPI_Probe (0 /*proc*/, MPI_ANY_TAG , MPI_COMM_WORLD , &status ) ;
+            if ( status.MPI_TAG == TAG_JOB_DATA ) {
+                Move m, best_move;
+                MPI_Recv(str, 1024, MPI_CHAR, 0, TAG_JOB_DATA, MPI_COMM_WORLD, &status);
+
+                MPI_Recv(recv_array, 3, MPI_INT, 0, TAG_JOB_DATA, MPI_COMM_WORLD, &status);
+                m = Move((short)recv_array[0], (unsigned char)recv_array[1], (Move::MoveType)recv_array[2]);
+
+                myBoard.setState(str+4);
+
+                myBoard.playMove(m);
+                ss->searchBestMove();
+                int my_eval = ss->eval;
+                //int my_eval = ss->minimax(1);//adepth = 0
+
+                MPI_Send(&my_eval, 1, MPI_INT, 0, TAG_RESULT, MPI_COMM_WORLD);
+                MPI_Send(recv_array, 3, MPI_INT, 0, TAG_RESULT, MPI_COMM_WORLD);
+
+            }
+            else if( status.MPI_TAG == TAG_STOP ){
+                MPI_Recv(str, 0, MPI_CHAR, 0, TAG_STOP, MPI_COMM_WORLD, &status2);
+
+                break;
+
+                // We got a stop message we have to retrieve it by using MPI_Recv
+                // But we can ignore the data from the MPI_Recv call
+                // MPI_Recv (/*...*/ , 0, TAG_STOP , MPI_COMM_WORLD , &stat2);
+                // stopped = 1;
+            }
+        }
+    }
+    MPI_Finalize();
+
 
 }

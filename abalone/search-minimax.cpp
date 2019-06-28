@@ -10,6 +10,8 @@
 #include "board.h"
 #include "eval.h"
 #include <tuple>
+#include "mpi.h"
+
 
 /**
  * To create your own search strategy:
@@ -40,12 +42,13 @@ class MinimaxStrategy: public SearchStrategy
     /**
      * Implementation of the strategy.
      */
-    int minimax(int depth=0, bool max=true);
+    int minimax(int depth=0);
     void searchBestMove();
 };
 
-int MinimaxStrategy::minimax(int depth, bool max)
+int MinimaxStrategy::minimax(int depth)
 {
+    bool max = (depth + 1) % 2;//0=min, 1=max
     int bestEval = max ? minEvaluation() : maxEvaluation() ;
     int eval;
     if (depth == _maxDepth) {
@@ -58,48 +61,13 @@ int MinimaxStrategy::minimax(int depth, bool max)
     int i;
     for(i = 0; list.getNext(m); i++) {
         playMove(m);
-        // if(depth == 0)
-        // {
-        //     printf(" depth: %d  iteration: %d    move: %s \n", depth, i, m.name());
-        // }
-
-        eval = minimax(depth+1, !max);
+        eval = minimax(depth+1);
         takeBack();
-
-        // if (max && eval > bestEval)
-        // {
-        //     bestEval = eval;
-        //     //printf(" depth: %d  iteration: %d    bestEval: %d \n", depth, i, eval);
-        //     printf(" depth: %d  iteration: %d    move: %s   bestEval: %d \n", depth, i, m.name(), eval);
-        //     if (depth == 0)
-        //     {
-        //
-        //         printf("\n");
-        //         foundBestMove(0, m, eval);
-        //     }
-        // }
-        // else if(!max && eval <= bestEval)
-        // {
-        //     printf(" depth: %d  iteration: %d    move: %s   bestEval: %d \n", depth, i, m.name(), eval);
-        //     //printf(" depth: %d  iteration: %d    bestEval: %d \n", depth, i, eval);
-        //     bestEval = eval;
-        // }
-
-
-        // if ((max && eval > bestEval) || (!max && eval <= bestEval)) {
-        //     bestEval = eval;
-        //     printf(" depth: %d      bestEval: %d \n", depth, bestEval);
-        //     if (depth == 0)
-        //     {
-        //         printf("\n");
-        //         foundBestMove(0, m, eval);
-        //     }
-        // }
 
 
         if ((max && eval > bestEval) || (!max && eval <= bestEval)) {
             bestEval = eval;
-            //printf(" depth: %d      bestEval: %d \n", depth, bestEval);
+            //     printf(" depth: %d  iteration: %d    move: %s   bestEval: %d \n", depth, i, m.name(), eval);
             if (depth == 0)
             {
                 //printf("\n");
@@ -108,7 +76,6 @@ int MinimaxStrategy::minimax(int depth, bool max)
 	    }
 
     }
-    //printf("     possible moves : %d \n", i);
     if (i == 0) {
         nodes_evaluated++;
         return evaluate();
@@ -119,9 +86,22 @@ int MinimaxStrategy::minimax(int depth, bool max)
 
 void MinimaxStrategy::searchBestMove()
 {
-    nodes_evaluated = 0;
-    _maxDepth %2 == 0 ? minimax(0, false) : minimax(0, true);
-    finishedNode(0,0);
+    // generateMoves(list);
+
+
+    // int  numtasks, rank, len;
+    // char hostname[MPI_MAX_PROCESSOR_NAME];
+    // MPI_Comm_size(MPI_COMM_WORLD,&numtasks);
+    // MPI_Comm_rank(MPI_COMM_WORLD,&rank);
+    // MPI_Get_processor_name(hostname, &len);
+    //
+    // if(numtasks <= 1)
+    //     minimax(0);
+
+    // nodes_evaluated = 0;
+
+    eval = minimax(1);
+    // finishedNode(0,0);
     //printf("Total nodes evaluated: %d \n", nodes_evaluated);
 }
 

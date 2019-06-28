@@ -2,7 +2,7 @@
 ### Chosen compiler has to be in path (use "module" to setup environment)
 
 # Use this for GCC (warning: GCC < 4.2.x does not support OpenMP)
-CXX = g++
+CXX = mpic++
 
 # Use this for the Intel C++ compiler ("icc" is only the C version)
 #CXX = icpc

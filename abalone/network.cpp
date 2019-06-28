@@ -75,7 +75,7 @@ void NetworkLoop::remove(NetworkDomain* domain)
 	    if (FD_ISSET(max_readfd, &readfds)) break;
 	    max_readfd--;
 	}
-    }	
+    }
 
     d->close();
     if (prev) prev->next = d->next;
@@ -93,7 +93,7 @@ void subTimeval(struct timeval* tv1, struct timeval* tv2)
     }
     else
 	tv1->tv_usec -= tv2->tv_usec;
-}    
+}
 
 int NetworkLoop::run()
 {
@@ -166,7 +166,7 @@ bool NetworkLoop::pending()
     fd_set rfds = readfds;
     select(max_readfd+1, &rfds, NULL, NULL, NULL);
 
-    for(int i = 0;i<=max_readfd;i++)	
+    for(int i = 0;i<=max_readfd;i++)
 	if (FD_ISSET(i, &rfds)) return true;
 
     return false;
@@ -175,7 +175,7 @@ bool NetworkLoop::pending()
 void NetworkLoop::processPending()
 {
     fd_set rfds = readfds;
-    select(max_readfd+1, &rfds, NULL, NULL, NULL); 
+    select(max_readfd+1, &rfds, NULL, NULL, NULL);
 
     NetworkDomain* d = domainList;
     for(;d!=0;d = d->next)
@@ -194,7 +194,7 @@ NetworkTimer::NetworkTimer(int msecs)
 void NetworkTimer::timeout(NetworkLoop*)
 {
     printf("Timeout after %d.%03d secs!\n", _msecs/1000, _msecs%1000);
-}   
+}
 
 void NetworkTimer::reset()
 {
@@ -225,7 +225,7 @@ bool NetworkTimer::subLeft(struct timeval* tv)
     if (_left.tv_sec < tv->tv_sec) return true;
     if (_left.tv_sec == tv->tv_sec)
 	if (_left.tv_usec <= tv->tv_usec) return true;
- 
+
     subTimeval(&_left, tv);
 
     return false;
@@ -319,7 +319,7 @@ bool Connection::sendString(const char* str, int len)
         reachable = false;
         return false;
     }
-    
+
     const char* origStr = str;
     while(len > 0) {
         int written = write(s, str, len);
@@ -333,10 +333,10 @@ bool Connection::sendString(const char* str, int len)
     if (::close(s) < 0) {
 		perror("Error in close in Connection::sendString");
 	}
-    
+
     if (verbose>1)
         printf("Connection::sendString: Sent to %s: '%s'\n", addr(), origStr);
-    
+
     return true;
 }
 
@@ -392,7 +392,7 @@ int NetworkDomain::startListening(NetworkLoop* l)
 
     fd = ::socket (PF_INET, SOCK_STREAM, 0);
     if (fd<0) return fd;
- 
+
     for(i = 0; i<5;i++) {
 	myPort = myID + i;
 	name.sin_family = AF_INET;
@@ -441,7 +441,7 @@ void NetworkDomain::close()
 {
   if (fd<0) return;
   ::close(fd);
-  
+
   Connection *l, *lnext;
   for(l=connectionList; l!=0; l=lnext) {
       lnext = l->next;
@@ -478,7 +478,7 @@ Connection* NetworkDomain::getNewConnection(const char* h,
 
     return c;
 }
-    
+
 
 
 void NetworkDomain::gotConnection()
@@ -505,36 +505,36 @@ void NetworkDomain::gotConnection()
 	     inet_ntoa(sin.sin_addr), ntohs(sin.sin_port), tmp);
 
   if (strncmp(tmp,"reg ",4)==0) {
-    char* col = strrchr(tmp+4,':');
-    if (col) {
-	*col = 0;
-	int port = atoi(col+1);
-	if (verbose)
-            printf(" Reg of remote connection %s:%d\n", tmp+4, port);
-        addConnection(tmp+4, port);
-	return;
-    }	
-    int port = atoi(tmp+4);
-    sin.sin_port = htons( port );
-    Connection *c = getNewConnection(0, sin);
-    c->reachable = true;
+        char* col = strrchr(tmp+4,':');
+        if (col) {
+    	*col = 0;
+    	int port = atoi(col+1);
+    	if (verbose)
+                printf(" Reg of remote connection %s:%d\n", tmp+4, port);
+            addConnection(tmp+4, port);
+    	return;
+        }
+        int port = atoi(tmp+4);
+        sin.sin_port = htons( port );
+        Connection *c = getNewConnection(0, sin);
+        c->reachable = true;
 
-    if (verbose)
-        printf(" Reg of %s\n", c->addr());
+        if (verbose)
+            printf(" Reg of %s\n", c->addr());
 
-    newConnection(c);
+        newConnection(c);
 
-    for(Connection* cc=connectionList; cc!=0; cc=cc->next) {
-        if (cc == c) continue;
-	if (!cc->reachable) continue;
+        for(Connection* cc=connectionList; cc!=0; cc=cc->next) {
+            if (cc == c) continue;
+    	    if (!cc->reachable) continue;
 
-        char tmp[50];
-        int len = sprintf(tmp, "reg %s", cc->addr());
-	c->sendString(tmp, len);
+            char tmp[50];
+            int len = sprintf(tmp, "reg %s", cc->addr());
+    	    c->sendString(tmp, len);
+        }
+
+        return;
     }
-
-    return;
-  }
 
   if (strncmp(tmp,"unreg ",6)==0) {
     int port = atoi(tmp+6);
@@ -625,8 +625,7 @@ Connection* NetworkDomain::prepareConnection(const char* host, int port)
 void NetworkDomain::broadcast(const char* str)
 {
   int len = strlen(str);
-  
+
   for(Connection* c=connectionList; c!=0; c=c->next)
       c->sendString(str, len);
 }
-

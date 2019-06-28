@@ -19,7 +19,7 @@ class SearchCallbacks
  public:
     SearchCallbacks(int v = 0) { _verbose = v; }
     virtual ~SearchCallbacks() {}
-    
+
     // called at beginning of new search. If <msecs> >0,
     // we will stop search (via afterEval) after that time
     virtual void start(int msecsForSearch);
@@ -82,13 +82,16 @@ class SearchStrategy
     virtual SearchStrategy* clone() = 0;
 
     void stopSearch() { _stopSearch = true; }
+    int eval;
 
- protected:
     /**
      * Overwrite this to implement your search strategy
      * and set _bestMove
     */
     virtual void searchBestMove() = 0;
+
+ protected:
+
 
     /**
      * Some dispatcher methods for convenience.
