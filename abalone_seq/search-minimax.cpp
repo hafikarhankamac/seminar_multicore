@@ -84,7 +84,7 @@ int MinimaxStrategy::minimax(int depth, bool max)
     generateMoves(moves);
     Move move;
     int bestVal = max ? minEvaluation() : maxEvaluation();
-    int i = 0;
+    int i;
     for (i = 0; moves.getNext(move); i++)
     {
         playMove(move);
