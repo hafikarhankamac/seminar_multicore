@@ -53,7 +53,7 @@ int MinimaxStrategy::minimax(int depth)
     int eval;
     if (depth == _maxDepth) {
         nodes_evaluated++;
-        return evaluate();
+        return max ? -evaluate() : evaluate();
     }
     MoveList list;
     Move m;
@@ -67,10 +67,8 @@ int MinimaxStrategy::minimax(int depth)
 
         if ((max && eval > bestEval) || (!max && eval <= bestEval)) {
             bestEval = eval;
-            //     printf(" depth: %d  iteration: %d    move: %s   bestEval: %d \n", depth, i, m.name(), eval);
             if (depth == 0)
             {
-                //printf("\n");
                 foundBestMove(0, m, eval);
             }
 	    }
@@ -78,9 +76,8 @@ int MinimaxStrategy::minimax(int depth)
     }
     if (i == 0) {
         nodes_evaluated++;
-        return evaluate();
+        return max ? -evaluate() : evaluate();
     }
-
     return bestEval;
 }
 
