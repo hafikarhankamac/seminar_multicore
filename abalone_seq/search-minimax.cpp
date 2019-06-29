@@ -27,22 +27,21 @@
  * - call finishedNode() when finishing evaluation of a tree node
  * - Use _maxDepth for strength level (maximal level searched in tree)
  */
-class MinimaxStrategy: public SearchStrategy
+class MinimaxStrategy : public SearchStrategy
 {
- public:
+public:
     // Defines the name of the strategy
-    MinimaxStrategy(): SearchStrategy("Minimax") { }
+    MinimaxStrategy() : SearchStrategy("Minimax") {}
 
     // Factory method: just return a new instance of this class
-    SearchStrategy* clone() { return new MinimaxStrategy(); }
+    SearchStrategy *clone() { return new MinimaxStrategy(); }
 
- private:
-
+private:
     /**
      * Implementation of the strategy.
      */
-    int minimax(int=0, bool=true);
-    void minimax_iter(bool max=true);
+    int minimax(int = 0, bool = true);
+    void minimax_iter(bool max = true);
     void searchBestMove();
 };
 
@@ -56,49 +55,49 @@ void MinimaxStrategy::minimax_iter(bool max)
     int reached_depth = 0;
     Move m;
     bool hasNext = false;
-    while (true) {
+    while (true)
+    {
         // We are not interleaving, so generate moves
-        if (!hasNext) {
+        if (!hasNext)
+        {
             generateMoves(lists[depth]);
             hasNext = lists[depth].getNext(m);
-            if (!hasNext) {  // Level is full
+            if (!hasNext)
+            { // Level is full
                 depth--;
             }
         }
-        else {
+        else
+        {
             playMove(m);
             hasNext = lists[depth].getNext(m);
             depth++;
         }
-
     }
 }
 
-int MinimaxStrategy::minimax(int depth, bool max) 
+int MinimaxStrategy::minimax(int depth, bool max)
 {
-    if (depth == _maxDepth) 
-    {
+    if (depth == _maxDepth)
         return max ? -evaluate() : evaluate();
-    }
     MoveList moves;
     generateMoves(moves);
-    if (moves.getLength() == 0) 
-    {
-        return max ? -evaluate() : evaluate();
-    }
     Move move;
     int bestVal = max ? minEvaluation() : maxEvaluation();
-    while (moves.getNext(move)) 
+    int i = 0;
+    for (i = 0; moves.getNext(move); i++)
     {
         playMove(move);
         int val = minimax(depth + 1, !max);
         takeBack();
-        if ((max && val >= bestVal) || (!max && val <= bestVal)) 
+        if ((max && val >= bestVal) || (!max && val <= bestVal))
         {
             bestVal = val;
             foundBestMove(depth, move, bestVal);
         }
     }
+    if (i == 0)
+        return max ? -evaluate() : evaluate();
     return bestVal;
 }
 
