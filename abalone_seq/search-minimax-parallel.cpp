@@ -40,6 +40,7 @@ public:
             replicas[i] = new Board();
             evals[i] = new Evaluator();
         }
+        num_evals = new int[num_replicas];
     }
 
     // Factory method: just return a new instance of this class
@@ -53,15 +54,19 @@ private:
     int num_replicas;
     Board *replicas[100];
     Evaluator *evals[100];
-    int minimax(Board *board, Evaluator *eval, int = 0, bool = true);
+    int minimax(Board *board, Evaluator *eval, int, bool, int &);
     void searchBestMove();
     Move move_buffer[1000];
+    int *num_evals;
 };
 
-int ParallelMinimaxStrategy::minimax(Board *board, Evaluator *eval, int depth, bool max)
+int ParallelMinimaxStrategy::minimax(Board *board, Evaluator *eval, int depth, bool max, int &eval_counter)
 {
     if (depth == _maxDepth)
+    {
+        eval_counter++;
         return max ? -eval->calcEvaluation(board) : eval->calcEvaluation(board);
+    }
     MoveList moves;
     board->generateMoves(moves);
     Move move;
@@ -70,7 +75,7 @@ int ParallelMinimaxStrategy::minimax(Board *board, Evaluator *eval, int depth, b
     for (i = 0; moves.getNext(move); i++)
     {
         board->playMove(move);
-        int val = minimax(board, eval, depth + 1, !max);
+        int val = minimax(board, eval, depth + 1, !max, eval_counter);
         board->takeBack();
         if ((max && val > bestVal) || (!max && val <= bestVal))
         {
@@ -78,7 +83,10 @@ int ParallelMinimaxStrategy::minimax(Board *board, Evaluator *eval, int depth, b
         }
     }
     if (i == 0)
+    {
+        eval_counter++;
         return max ? -eval->calcEvaluation(board) : eval->calcEvaluation(board);
+    }
     return bestVal;
 }
 
@@ -93,6 +101,7 @@ void ParallelMinimaxStrategy::searchBestMove()
     {
         replicas[i]->setState(_board->getState()); 
         evals[i]->setEvalScheme(_ev->evalScheme());
+        num_evals[i] = 0;
     }
     Move bestMove;
     for (i = 0; moves.getNext(move); i++)
@@ -108,26 +117,33 @@ void ParallelMinimaxStrategy::searchBestMove()
     int tid = omp_get_thread_num();
     int start = tid * per_proc;
     int end = (tid + 1) * per_proc;
-    if (tid == (n_threads-1)) {
+    if (tid == (n_threads-1)) 
+    {
         end += i % n_threads;
     }
     for (int j = start; j < end; j++)
     {
         Move m = move_buffer[j];
         replicas[tid]->playMove(m);
-        int val = minimax(replicas[tid], evals[tid], 1, false);
+        int val = minimax(replicas[tid], evals[tid], 1, false, num_evals[tid]);
         replicas[tid]->takeBack();
         values[j] = val;
     }
 }
     for (int i = 0; i < values.size(); i++)
     {
-        if (values[i] > bestVal) {
+        if (values[i] > bestVal) 
+        {
             bestVal = values[i];
             foundBestMove(0, move_buffer[i], bestVal);
-            //bestMove = move_buffer[i];
         }
     }
+    int total_evals = 0;
+    for (int i = 0; i < num_replicas; i++)
+    {
+        total_evals += num_evals[i];
+    }
+    printf("Total number of evals: %d\n", total_evals);
 }
 
 // register ourselve as a search strategy
