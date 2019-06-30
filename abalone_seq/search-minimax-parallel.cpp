@@ -99,18 +99,20 @@ void ParallelMinimaxStrategy::searchBestMove()
     Move move;
     int bestVal = minEvaluation();
     int i, bestI;
-    for (i = 0; i < num_replicas; i++)
-    {
-        replicas[i]->setState(_board->getState()); 
-        evals[i]->setEvalScheme(_ev->evalScheme());
-        num_evals[i] = 0;
-    }
+    char *boardState = _board->getState();
+    EvalScheme *evalScheme = _ev->evalScheme();
+# pragma omp parallel
+{
+    int tid = omp_get_thread_num();
+    replicas[tid]->setState(boardState); 
+    evals[tid]->setEvalScheme(evalScheme);
+    num_evals[tid] = 0;
+}
     Move bestMove;
     for (i = 0; moves.getNext(move); i++)
     {
         move_buffer[i] = move;
     }
-
     std::vector<int> values(i);
 # pragma omp parallel
 {
