@@ -34,11 +34,13 @@ class ParallelMinimaxStrategy : public SearchStrategy
 public:
     // Defines the name of the strategy
     ParallelMinimaxStrategy() : SearchStrategy("ParallelMinimax") {
-        num_replicas = omp_get_max_threads();
-        for (int i = 0; i < num_replicas; i++)
+        
+        #pragma omp parallel  // First touch
         {
-            replicas[i] = new Board();
-            evals[i] = new Evaluator();
+            int tid = omp_get_thread_num();
+            if (tid == 0) num_replicas = omp_get_num_threads();
+            replicas[tid] =  new Board();
+            evals[tid] =  new Evaluator();
         }
         num_evals = new int[num_replicas];
     }
