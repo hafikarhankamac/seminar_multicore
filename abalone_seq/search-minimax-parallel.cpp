@@ -38,6 +38,7 @@ public:
         for (int i = 0; i < num_replicas; i++)
         {
             replicas[i] = new Board();
+            evals[i] = new Evaluator();
         }
     }
 
@@ -51,15 +52,16 @@ private:
     int max_threads;
     int num_replicas;
     Board *replicas[100];
-    int minimax(Board *board, int = 0, bool = true);
+    Evaluator *evals[100];
+    int minimax(Board *board, Evaluator *eval, int = 0, bool = true);
     void searchBestMove();
     Move move_buffer[1000];
 };
 
-int ParallelMinimaxStrategy::minimax(Board *board, int depth, bool max)
+int ParallelMinimaxStrategy::minimax(Board *board, Evaluator *eval, int depth, bool max)
 {
     if (depth == _maxDepth)
-        return max ? -_ev->calcEvaluation(board) : _ev->calcEvaluation(board);
+        return max ? -eval->calcEvaluation(board) : eval->calcEvaluation(board);
     MoveList moves;
     board->generateMoves(moves);
     Move move;
@@ -68,15 +70,15 @@ int ParallelMinimaxStrategy::minimax(Board *board, int depth, bool max)
     for (i = 0; moves.getNext(move); i++)
     {
         board->playMove(move);
-        int val = minimax(board, depth + 1, !max);
+        int val = minimax(board, eval, depth + 1, !max);
         board->takeBack();
-        if ((max && val >= bestVal) || (!max && val <= bestVal))
+        if ((max && val > bestVal) || (!max && val <= bestVal))
         {
             bestVal = val;
         }
     }
     if (i == 0)
-        return max ? -_ev->calcEvaluation(board) : _ev->calcEvaluation(board);
+        return max ? -eval->calcEvaluation(board) : eval->calcEvaluation(board);
     return bestVal;
 }
 
@@ -90,12 +92,14 @@ void ParallelMinimaxStrategy::searchBestMove()
     for (i = 0; i < num_replicas; i++)
     {
         replicas[i]->setState(_board->getState()); 
+        evals[i]->setEvalScheme(_ev->evalScheme());
     }
     Move bestMove;
     for (i = 0; moves.getNext(move); i++)
     {
         move_buffer[i] = move;
     }
+
     std::vector<int> values(i);
 # pragma omp parallel
 {
@@ -111,29 +115,19 @@ void ParallelMinimaxStrategy::searchBestMove()
     {
         Move m = move_buffer[j];
         replicas[tid]->playMove(m);
-        int val = minimax(replicas[tid], 1, false);
+        int val = minimax(replicas[tid], evals[tid], 1, false);
         replicas[tid]->takeBack();
         values[j] = val;
-        //# pragma omp critical
-        /* {
-            //printf("Critical %d\n", tid);
-            if (val >= bestVal)
-            {
-                bestVal = val;
-                bestMove = m;
-            }
-        }*/
     }
 }
     for (int i = 0; i < values.size(); i++)
     {
-        if (values[i] >= bestVal) {
+        if (values[i] > bestVal) {
             bestVal = values[i];
-            bestMove = move_buffer[i];
+            foundBestMove(0, move_buffer[i], bestVal);
+            //bestMove = move_buffer[i];
         }
     }
-    
-    foundBestMove(0, bestMove, bestVal);
 }
 
 // register ourselve as a search strategy
