@@ -885,6 +885,12 @@ void Board::setSearchStrategy(SearchStrategy* ss)
     _ss = ss;
 }
 
+void Board::setStartingDepth(int d)
+{
+    if (!_ss) return;
+    _ss->setStartingDepth(d);
+}
+
 void Board::setDepth(int d)
 {
     if (!_ss) return;
@@ -897,6 +903,11 @@ Move& Board::bestMove()
 
     best = _ss->bestMove(this);
     return best;
+}
+
+int Board::getBestEval()
+{
+    return _ss->eval;
 }
 
 Move& Board::nextMove()

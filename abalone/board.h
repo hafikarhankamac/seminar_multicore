@@ -68,7 +68,7 @@ class Board
   enum { AllFields = 121, /* visible + ring of unvisible around */
          RealFields = 61, /* number of visible fields */
          MvsStored = 100 };
-  enum { empty=0, 
+  enum { empty=0,
 	 valid1,   // valid state with color1 to draw
 	 valid2,   // valid state with color2 to draw
 	 timeout1, // time out for color1 -> win for color2
@@ -119,7 +119,7 @@ class Board
     { return storedMove[storedLast]; }
 
   void showHist();
-  
+
   /* Evaluator to use */
   void setEvaluator(Evaluator* ev) { _ev = ev; }
 
@@ -150,6 +150,9 @@ class Board
   Move& bestMove();
   /* next move in prinipal variation */
   Move& nextMove();
+
+  int getBestEval();
+  void setStartingDepth(int d);
 
   Move randomMove();
   void stopSearch();

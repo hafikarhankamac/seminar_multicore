@@ -70,6 +70,7 @@ class SearchStrategy
 
     void registerCallbacks(SearchCallbacks* sc) { _sc = sc; }
     void setMaxDepth(int d) { _maxDepth = d; }
+    void setStartingDepth(int d) { startingDepth = d; }
     void setEvaluator(Evaluator* e) { _ev = e; }
 
     /* Start search and return best move. */
@@ -91,7 +92,6 @@ class SearchStrategy
     virtual void searchBestMove() = 0;
 
  protected:
-
 
     /**
      * Some dispatcher methods for convenience.
@@ -119,8 +119,10 @@ class SearchStrategy
     SearchCallbacks* _sc;
     Evaluator* _ev;
     Move _bestMove;
+    int startingDepth = 0;
 
  private:
+
     const char* _name;
     int _prio;
     SearchStrategy* _next;

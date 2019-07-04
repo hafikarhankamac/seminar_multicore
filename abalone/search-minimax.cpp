@@ -49,57 +49,35 @@ class MinimaxStrategy: public SearchStrategy
 int MinimaxStrategy::minimax(int depth)
 {
     bool max = (depth + 1) % 2;//0=min, 1=max
-    int bestEval = max ? minEvaluation() : maxEvaluation() ;
-    int eval;
-    if (depth == _maxDepth) {
-        nodes_evaluated++;
+    if (depth == _maxDepth)
         return max ? -evaluate() : evaluate();
-    }
     MoveList list;
-    Move m;
     generateMoves(list);
+    Move move;
+    int bestVal = max ? minEvaluation() : maxEvaluation() ;
     int i;
-    for(i = 0; list.getNext(m); i++) {
-        playMove(m);
-        eval = minimax(depth+1);
+    for(i = 0; list.getNext(move); i++) {
+        playMove(move);
+        int val = minimax(depth+1);
         takeBack();
-
-
-        if ((max && eval > bestEval) || (!max && eval <= bestEval)) {
-            bestEval = eval;
+        if ((max && val >= bestVal) || (!max && val <= bestVal)) {
+            bestVal = val;
             if (depth == 0)
             {
-                foundBestMove(0, m, eval);
+                bestVal = val;
+                foundBestMove(depth, move, bestVal);
             }
 	    }
 
     }
-    if (i == 0) {
-        nodes_evaluated++;
+    if (i == 0)
         return max ? -evaluate() : evaluate();
-    }
-    return bestEval;
+    return bestVal;
 }
 
 void MinimaxStrategy::searchBestMove()
 {
-    // generateMoves(list);
-
-
-    // int  numtasks, rank, len;
-    // char hostname[MPI_MAX_PROCESSOR_NAME];
-    // MPI_Comm_size(MPI_COMM_WORLD,&numtasks);
-    // MPI_Comm_rank(MPI_COMM_WORLD,&rank);
-    // MPI_Get_processor_name(hostname, &len);
-    //
-    // if(numtasks <= 1)
-    //     minimax(0);
-
-    // nodes_evaluated = 0;
-
-    eval = minimax(1);
-    // finishedNode(0,0);
-    //printf("Total nodes evaluated: %d \n", nodes_evaluated);
+    eval = minimax(startingDepth);
 }
 
 // register ourselve as a search strategy
