@@ -33,14 +33,16 @@ class ParallelMinimaxStrategy : public SearchStrategy
 {
 public:
     // Defines the name of the strategy
-    ParallelMinimaxStrategy() : SearchStrategy("ParallelMinimax") {
-        
-        #pragma omp parallel  // First touch
+    ParallelMinimaxStrategy() : SearchStrategy("ParallelMinimax")
+    {
+
+#pragma omp parallel // First touch
         {
             int tid = omp_get_thread_num();
-            if (tid == 0) num_replicas = omp_get_num_threads();
-            replicas[tid] =  new Board();
-            evals[tid] =  new Evaluator();
+            if (tid == 0)
+                num_replicas = omp_get_num_threads();
+            replicas[tid] = new Board();
+            evals[tid] = new Evaluator();
         }
         num_evals = new int[num_replicas];
     }
@@ -98,7 +100,62 @@ void ParallelMinimaxStrategy::searchBestMove()
     generateMoves(moves);
     Move move;
     int bestVal = minEvaluation();
-    int i, bestI;
+    int i;
+    char *boardState = _board->getState();
+    EvalScheme *evalScheme = _ev->evalScheme();
+#pragma omp parallel
+    {
+        int tid = omp_get_thread_num();
+        replicas[tid]->setState(boardState);
+        evals[tid]->setEvalScheme(evalScheme);
+        num_evals[tid] = 0;
+    }
+    for (i = 0; moves.getNext(move); i++)
+    {
+        move_buffer[i] = move;
+    }
+    std::vector<int> values(i);
+    int moveId = 0;
+#pragma omp parallel
+    {
+        Move localMove;
+        int tid = omp_get_thread_num();
+        while (1)
+        {
+            int localMoveId = -1;
+#pragma omp critical
+            {
+                if (moveId < i)
+                {
+                    localMoveId = moveId; 
+                    localMove = move_buffer[moveId];
+                    moveId++;
+                }
+            }
+            if (localMoveId < 0)
+                break;
+            replicas[tid]->playMove(localMove);
+            values[localMoveId] = minimax(replicas[tid], evals[tid], 1, false, num_evals[tid]);
+            replicas[tid]->takeBack();
+        }
+    }
+    for (int i = 0; i < values.size(); i++)
+    {
+        if (values[i] > bestVal)
+        {
+            bestVal = values[i];
+            foundBestMove(0, move_buffer[i], bestVal);
+        }
+    }
+}
+
+/* void ParallelMinimaxStrategy::searchBestMove()
+{
+    MoveList moves;
+    generateMoves(moves);
+    Move move;
+    int bestVal = minEvaluation();
+    int i;
     char *boardState = _board->getState();
     EvalScheme *evalScheme = _ev->evalScheme();
 # pragma omp parallel
@@ -108,7 +165,6 @@ void ParallelMinimaxStrategy::searchBestMove()
     evals[tid]->setEvalScheme(evalScheme);
     num_evals[tid] = 0;
 }
-    Move bestMove;
     for (i = 0; moves.getNext(move); i++)
     {
         move_buffer[i] = move;
@@ -148,7 +204,7 @@ void ParallelMinimaxStrategy::searchBestMove()
         total_evals += num_evals[i];
     }
     printf("Total number of evals: %d\n", total_evals);
-}
+}*/
 
 // register ourselve as a search strategy
 ParallelMinimaxStrategy parallelMinimaxStrategy;
