@@ -14,7 +14,7 @@ CXX = g++
 ### Options
 
 # Useful options for GCC
-CXXFLAGS=-O2 -g -fno-omit-frame-pointer
+CXXFLAGS=-O3 -fopenmp -std=c++11
 #LDFLAGS=
 
 # Useful options for Intel C++
@@ -23,7 +23,7 @@ LDFLAGS=
 
 
 LIB_OBJS = move.o board.o network.o search.o eval.o
-SEARCH_OBJS = $(LIB_OBJS) search-abid.o search-onelevel.o search-minimax.o
+SEARCH_OBJS = $(LIB_OBJS) search-abid.o search-onelevel.o search-minimax.o search-minimax-parallel.o
 
 all: player start referee
 
@@ -52,4 +52,5 @@ start.o: start.cpp board.cpp move.cpp
 referee.o: referee.cpp board.cpp move.cpp
 search-onelevel.o: search.h board.h eval.h
 search-minimax.o: search.h board.h eval.h
+search-minimax-parallel.o: search.h board.h eval.h
 search-abid.o: search.h board.h

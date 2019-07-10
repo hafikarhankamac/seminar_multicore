@@ -40,6 +40,7 @@ private:
     /**
      * Implementation of the strategy.
      */
+    int ab(int depth, bool max, int alpha, int beta);
     int minimax(int = 0, bool = true);
     void minimax_iter(bool max = true);
     void searchBestMove();
@@ -101,9 +102,41 @@ int MinimaxStrategy::minimax(int depth, bool max)
     return bestVal;
 }
 
+int MinimaxStrategy::ab(int depth, bool max, int alpha, int beta)
+{
+    if (depth == _maxDepth)
+        return max ? -evaluate() : evaluate();
+    MoveList moves;
+    generateMoves(moves);
+    Move move;
+    int bestVal = max ? minEvaluation() : maxEvaluation();
+    int i;
+    for (i = 0; moves.getNext(move); i++)
+    {
+        playMove(move);
+        int val = ab(depth + 1, !max, -beta, -alpha);
+        takeBack();
+        if (max) {
+            bestVal = std::max(val, bestVal);
+            alpha = std::max(alpha, val);
+            if (bestVal == val) foundBestMove(depth, move, val);
+            if (alpha >= beta) return beta;
+        } else {
+            bestVal = std::min(val, bestVal);
+            beta = std::min(beta, val);
+            if (bestVal == val) foundBestMove(depth, move, val);
+            if (alpha >= beta) return alpha;
+        }
+    }
+    if (i == 0)
+        return max ? -evaluate() : evaluate();
+    return bestVal;
+}
+
 void MinimaxStrategy::searchBestMove()
 {
-    minimax();
+    // ab(0, true, minEvaluation(), maxEvaluation());
+    minimax(0, true);
 }
 
 // register ourselve as a search strategy
