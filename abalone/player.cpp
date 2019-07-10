@@ -122,11 +122,13 @@ void MyDomain::received(char* str)
     	    case Board::timeout2:
     	    case Board::win1:
     	    case Board::win2:
-            int i;
-            for (i = 1; i < numtasks; i++) {
-                MPI_Recv(str, 0, MPI_CHAR, i, TAG_ASK_FOR_JOB, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-                MPI_Send(str, 0, MPI_CHAR, i, TAG_STOP, MPI_COMM_WORLD);
-            }
+            ////////////////////////////////MPI
+            // int i;
+            // for (i = 1; i < numtasks; i++) {
+            //     MPI_Recv(str, 0, MPI_CHAR, i, TAG_ASK_FOR_JOB, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+            //     MPI_Send(str, 0, MPI_CHAR, i, TAG_STOP, MPI_COMM_WORLD);
+            // }
+            ////////////////////////////////
     		l.exit();
     	    default:
     		break;
@@ -140,81 +142,83 @@ void MyDomain::received(char* str)
     	gettimeofday(&t1,0);
 
         ////////////////////////////////MPI
-        MoveList list;
-        Move m, bestMove;
-        myBoard.generateMoves(list);
-        int i;
+        // MoveList list;
+        // Move m, bestMove;
+        // myBoard.generateMoves(list);
+        // int i;
+        //
+        // MPI_Status status, status2;
+        // MPI_Request message_type, data_send_1, data_send_2, data_recv_1, data_recv_2, request;
+        // bool is_next_move = true ;
+        // int best_eval = -99999;
+        // char tmp_buf [2];
+        // int tasks_created = 0;
+        // int tasks_completed = 0;
+        // int send_array[3], recv_move[3];
+        // while(true)
+        // {
+        //     if(tasks_created == tasks_completed && !is_next_move)
+        //     {
+        //         if (verbose>1){printf("all moves evaluated .. %d \n", tasks_completed);}
+        //         break;
+        //     }
+        //     MPI_Probe(MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
+        //     int slave_rank = status.MPI_SOURCE;
+        //     if (status.MPI_TAG == TAG_ASK_FOR_JOB)
+        //     {
+        //         MPI_Irecv(tmp_buf, 0, MPI_CHAR, slave_rank, TAG_ASK_FOR_JOB, MPI_COMM_WORLD, &message_type);
+        //
+        //         //MPI_Recv(tmp_buf, 0, MPI_CHAR, slave_rank, TAG_ASK_FOR_JOB, MPI_COMM_WORLD, &status2);
+        //         if (is_next_move && list.getNext(m))
+        //         {
+        //             if(tasks_created > 0)//after the first round, check that the previous sends were completed
+        //             {
+        //                 MPI_Wait(&data_send_1, &status2);
+        //                 MPI_Wait(&data_send_2, &status2);
+        //             }
+        //             MPI_Isend(str, 1024, MPI_CHAR, slave_rank, TAG_JOB_DATA, MPI_COMM_WORLD, &data_send_1);
+        //             send_array[0] = (int)m.field;
+        //             send_array[1] = (int)m.direction;
+        //             send_array[2] = m.type;//??const void *
+        //             MPI_Isend(send_array, 3, MPI_INT, slave_rank, TAG_JOB_DATA_2, MPI_COMM_WORLD, &data_send_2);
+        //             if (verbose>1){printf("sending data no.%d to proc %d \n", tasks_created, slave_rank);}
+        //             tasks_created++;
+        //         }
+        //         else //there is no next move but have to wait for other workers to finish the round
+        //         {
+        //             MPI_Isend(str, 0, MPI_CHAR, slave_rank, TAG_DO_NOTHING, MPI_COMM_WORLD, &request ) ;
+        //             if (verbose>1)
+        //                 printf("no further move to test in this round .. (total %d) \n", tasks_created);
+        //             is_next_move = false;
+        //         }
+        //     }
+        //     else if (status.MPI_TAG == TAG_RESULT)
+        //     {
+        //         if (verbose>1){printf("receiving data no.%d from proc %d \n", tasks_completed, slave_rank);}
+        //
+        //         int worker_eval;
+        //         MPI_Irecv(&worker_eval, 1, MPI_INT, slave_rank, TAG_RESULT, MPI_COMM_WORLD, &data_recv_1);
+        //         MPI_Irecv(recv_move, 3, MPI_INT, slave_rank, TAG_RESULT_2, MPI_COMM_WORLD, &data_recv_2);
+        //
+        //         MPI_Wait(&data_recv_1, &status2);
+        //         if (worker_eval >= best_eval)
+        //         {
+        //             best_eval = worker_eval;
+        //             MPI_Wait(&data_recv_2, &status2);
+        //             bestMove = Move((short)recv_move[0], (unsigned char)recv_move[1], (Move::MoveType)recv_move[2]);
+        //             if (verbose>1){
+        //                 printf("found new best eval %d from %d - %s \n", worker_eval, slave_rank, bestMove.name());
+        //                 myBoard.print();
+        //             }
+        //         }
+        //         tasks_completed++;
+        //     }
+        // }
 
-        MPI_Status status, status2;
-        MPI_Request message_type, data_send_1, data_send_2, data_recv_1, data_recv_2, request;
-        bool is_next_move = true ;
-        int best_eval = -99999;
-        char tmp_buf [2];
-        int tasks_created = 0;
-        int tasks_completed = 0;
-        int send_array[3], recv_move[3];
-        while(true)
-        {
-            if(tasks_created == tasks_completed && !is_next_move)
-            {
-                if (verbose>1){printf("all moves evaluated .. %d \n", tasks_completed);}
-                break;
-            }
-            MPI_Probe(MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
-            int slave_rank = status.MPI_SOURCE;
-            if (status.MPI_TAG == TAG_ASK_FOR_JOB)
-            {
-                MPI_Irecv(tmp_buf, 0, MPI_CHAR, slave_rank, TAG_ASK_FOR_JOB, MPI_COMM_WORLD, &message_type);
-
-                //MPI_Recv(tmp_buf, 0, MPI_CHAR, slave_rank, TAG_ASK_FOR_JOB, MPI_COMM_WORLD, &status2);
-                if (is_next_move && list.getNext(m))
-                {
-                    if(tasks_created > 0)//after the first round, check that the previous sends were completed
-                    {
-                        MPI_Wait(&data_send_1, &status2);
-                        MPI_Wait(&data_send_2, &status2);
-                    }
-                    MPI_Isend(str, 1024, MPI_CHAR, slave_rank, TAG_JOB_DATA, MPI_COMM_WORLD, &data_send_1);
-                    send_array[0] = (int)m.field;
-                    send_array[1] = (int)m.direction;
-                    send_array[2] = m.type;//??const void *
-                    MPI_Isend(send_array, 3, MPI_INT, slave_rank, TAG_JOB_DATA_2, MPI_COMM_WORLD, &data_send_2);
-                    if (verbose>1){printf("sending data no.%d to proc %d \n", tasks_created, slave_rank);}
-                    tasks_created++;
-                }
-                else //there is no next move but have to wait for other workers to finish the round
-                {
-                    MPI_Isend(str, 0, MPI_CHAR, slave_rank, TAG_DO_NOTHING, MPI_COMM_WORLD, &request ) ;
-                    if (verbose>1)
-                        printf("no further move to test in this round .. (total %d) \n", tasks_created);
-                    is_next_move = false;
-                }
-            }
-            else if (status.MPI_TAG == TAG_RESULT)
-            {
-                if (verbose>1){printf("receiving data no.%d from proc %d \n", tasks_completed, slave_rank);}
-
-                int worker_eval;
-                MPI_Irecv(&worker_eval, 1, MPI_INT, slave_rank, TAG_RESULT, MPI_COMM_WORLD, &data_recv_1);
-                MPI_Irecv(recv_move, 3, MPI_INT, slave_rank, TAG_RESULT_2, MPI_COMM_WORLD, &data_recv_2);
-
-                MPI_Wait(&data_recv_1, &status2);
-                if (worker_eval >= best_eval)
-                {
-                    best_eval = worker_eval;
-                    MPI_Wait(&data_recv_2, &status2);
-                    bestMove = Move((short)recv_move[0], (unsigned char)recv_move[1], (Move::MoveType)recv_move[2]);
-                    if (verbose>1){
-                        printf("found new best eval %d from %d - %s \n", worker_eval, slave_rank, bestMove.name());
-                        myBoard.print();
-                    }
-                }
-                tasks_completed++;
-            }
-        }
-
-        ////////////////////////////////MPI
-        //Move m = myBoard.bestMove();
+        ////////////////////////////////
+        ////////////////////////////////Sequential
+        Move bestMove = myBoard.bestMove();
+        ////////////////////////////////
 
         gettimeofday(&t2,0);
 
@@ -223,7 +227,7 @@ void MyDomain::received(char* str)
     	    (1000* t1.tv_sec + t1.tv_usec / 1000);
 
     	printf("%s ", (myColor == Board::color1) ? "O":"X");
-    	if (m.type == Move::none) {
+    	if (bestMove.type == Move::none) {
     	    printf(" can not draw any move ?! Sorry.\n");
     	    return;
     	}
@@ -383,13 +387,15 @@ void parseArgs(int argc, char* argv[])
 
 int main(int argc, char* argv[])
 {
+    ////////////////////////////////MPI
     // initialize MPI
-    int len;
-    char hostname[MPI_MAX_PROCESSOR_NAME];
-    MPI_Init(&argc,&argv);
-    MPI_Comm_size(MPI_COMM_WORLD,&numtasks);
-    MPI_Comm_rank(MPI_COMM_WORLD,&rank);
-    MPI_Get_processor_name(hostname, &len);
+    // int len;
+    // char hostname[MPI_MAX_PROCESSOR_NAME];
+    // MPI_Init(&argc,&argv);
+    // MPI_Comm_size(MPI_COMM_WORLD,&numtasks);
+    // MPI_Comm_rank(MPI_COMM_WORLD,&rank);
+    // MPI_Get_processor_name(hostname, &len);
+    ////////////////////////////////
 
     parseArgs(argc, argv);
 
@@ -401,65 +407,69 @@ int main(int argc, char* argv[])
     ss->setEvaluator(&ev);
     ss->registerCallbacks(new SearchCallbacks(verbose));
 
-    MPI_Barrier(MPI_COMM_WORLD);
-    if(rank == 0)
-    {
+    ////////////////////////////////MPI
+    // MPI_Barrier(MPI_COMM_WORLD);
+    // if(rank == 0)
+    // {
+    ////////////////////////////////
         MyDomain d(lport);
         l.install(&d);
 
         if (host) d.addConnection(host, rport);
 
         l.run();
-    }
-    else
-    {
-        MPI_Status status, status2;
-        MPI_Request data_send_1, data_send_2, data_recv_1, data_recv_2;
-        int cnt = 0;
-        while(true)
-        {
-
-            char str[1024];
-            int recv_array[3];
-            MPI_Send(str, 0 , MPI_CHAR, 0, TAG_ASK_FOR_JOB , MPI_COMM_WORLD ) ;
-            MPI_Probe (0, MPI_ANY_TAG , MPI_COMM_WORLD , &status ) ;
-            if ( status.MPI_TAG == TAG_JOB_DATA ) {
-                Move m, best_move;
-                if(cnt > 0)//after the first round, check that the previous sends were completed
-                {
-                    MPI_Wait(&data_send_1, &status2);
-                    MPI_Wait(&data_send_2, &status2);
-                }
-                MPI_Irecv(str, 1024, MPI_CHAR, 0, TAG_JOB_DATA, MPI_COMM_WORLD, &data_recv_1);
-                MPI_Irecv(recv_array, 3, MPI_INT, 0, TAG_JOB_DATA_2, MPI_COMM_WORLD, &data_recv_2);
-                MPI_Wait(&data_recv_2, &status2);
-                m = Move((short)recv_array[0], (unsigned char)recv_array[1], (Move::MoveType)recv_array[2]);
-                MPI_Wait(&data_recv_1, &status2);
-                myBoard.setState(str+4);
-                myBoard.playMove(m);
-                    //myBoard.print();
-                    //printf("data no.%d from proc 0 playing move %s \n", cnt, m.name());
-                myBoard.setStartingDepth(1);
-                myBoard.bestMove();
-                int my_eval = myBoard.getBestEval();
-
-                MPI_Isend(&my_eval, 1, MPI_INT, 0, TAG_RESULT, MPI_COMM_WORLD, &data_send_1);
-                MPI_Isend(recv_array, 3, MPI_INT, 0, TAG_RESULT_2, MPI_COMM_WORLD, &data_send_2);
-
-                cnt ++;
-            }
-            else if( status.MPI_TAG == TAG_DO_NOTHING){
-                //wait until other workers finish the tasks for this ound but still ask for next job as it comes in the next round
-                MPI_Recv(str, 0, MPI_CHAR, 0, TAG_DO_NOTHING, MPI_COMM_WORLD, &status2) ;
-                usleep(100);
-            }
-            else if( status.MPI_TAG == TAG_STOP ){
-                MPI_Recv(str, 0, MPI_CHAR, 0, TAG_STOP, MPI_COMM_WORLD, &status2);
-                break;
-            }
-        }
-    }
-    MPI_Finalize();
+    ////////////////////////////////MPI
+    // }
+    // else
+    // {
+    //     MPI_Status status, status2;
+    //     MPI_Request data_send_1, data_send_2, data_recv_1, data_recv_2;
+    //     int cnt = 0;
+    //     while(true)
+    //     {
+    //
+    //         char str[1024];
+    //         int recv_array[3];
+    //         MPI_Send(str, 0 , MPI_CHAR, 0, TAG_ASK_FOR_JOB , MPI_COMM_WORLD ) ;
+    //         MPI_Probe (0, MPI_ANY_TAG , MPI_COMM_WORLD , &status ) ;
+    //         if ( status.MPI_TAG == TAG_JOB_DATA ) {
+    //             Move m, best_move;
+    //             if(cnt > 0)//after the first round, check that the previous sends were completed
+    //             {
+    //                 MPI_Wait(&data_send_1, &status2);
+    //                 MPI_Wait(&data_send_2, &status2);
+    //             }
+    //             MPI_Irecv(str, 1024, MPI_CHAR, 0, TAG_JOB_DATA, MPI_COMM_WORLD, &data_recv_1);
+    //             MPI_Irecv(recv_array, 3, MPI_INT, 0, TAG_JOB_DATA_2, MPI_COMM_WORLD, &data_recv_2);
+    //             MPI_Wait(&data_recv_2, &status2);
+    //             m = Move((short)recv_array[0], (unsigned char)recv_array[1], (Move::MoveType)recv_array[2]);
+    //             MPI_Wait(&data_recv_1, &status2);
+    //             myBoard.setState(str+4);
+    //             myBoard.playMove(m);
+    //                 //myBoard.print();
+    //                 //printf("data no.%d from proc 0 playing move %s \n", cnt, m.name());
+    //             myBoard.setStartingDepth(1);
+    //             myBoard.bestMove();
+    //             int my_eval = myBoard.getBestEval();
+    //
+    //             MPI_Isend(&my_eval, 1, MPI_INT, 0, TAG_RESULT, MPI_COMM_WORLD, &data_send_1);
+    //             MPI_Isend(recv_array, 3, MPI_INT, 0, TAG_RESULT_2, MPI_COMM_WORLD, &data_send_2);
+    //
+    //             cnt ++;
+    //         }
+    //         else if( status.MPI_TAG == TAG_DO_NOTHING){
+    //             //wait until other workers finish the tasks for this ound but still ask for next job as it comes in the next round
+    //             MPI_Recv(str, 0, MPI_CHAR, 0, TAG_DO_NOTHING, MPI_COMM_WORLD, &status2) ;
+    //             usleep(100);
+    //         }
+    //         else if( status.MPI_TAG == TAG_STOP ){
+    //             MPI_Recv(str, 0, MPI_CHAR, 0, TAG_STOP, MPI_COMM_WORLD, &status2);
+    //             break;
+    //         }
+    //     }
+    // }
+    // MPI_Finalize();
+    ////////////////////////////////
 
 
 }

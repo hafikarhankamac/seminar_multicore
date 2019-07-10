@@ -4,10 +4,10 @@
 # Use this for GCC (warning: GCC < 4.2.x does not support OpenMP)
 #CXX = mpicxx.mpich
 #for lxhalle the following works
-CXX = mpic++
+#CXX = mpic++
 
 # Use this for the Intel C++ compiler ("icc" is only the C version)
-#CXX = icpc
+CXX = icpc
 
 # Use this for MPI
 #CXX = mpiCC
@@ -16,7 +16,7 @@ CXX = mpic++
 ### Options
 
 # Useful options for GCC
-CXXFLAGS=-O2 -g -fno-omit-frame-pointer --std=c++11
+CXXFLAGS=-O3 --std=c++11
 #LDFLAGS=
 
 # Useful options for Intel C++
@@ -25,7 +25,7 @@ LDFLAGS=
 
 
 LIB_OBJS = move.o board.o network.o search.o eval.o
-SEARCH_OBJS = $(LIB_OBJS) search-abid.o search-onelevel.o search-minimax.o
+SEARCH_OBJS = $(LIB_OBJS) search-abid.o search-onelevel.o search-minimax.o search-ab.o
 
 all: player start referee
 
@@ -54,4 +54,5 @@ start.o: start.cpp board.cpp move.cpp
 referee.o: referee.cpp board.cpp move.cpp
 search-onelevel.o: search.h board.h eval.h
 search-minimax.o: search.h board.h eval.h
+search-ab.o: search.h board.h eval.h
 search-abid.o: search.h board.h
