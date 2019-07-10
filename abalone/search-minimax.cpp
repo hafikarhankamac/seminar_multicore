@@ -49,8 +49,11 @@ class MinimaxStrategy: public SearchStrategy
 int MinimaxStrategy::minimax(int depth)
 {
     bool max = (depth + 1) % 2;//0=min, 1=max
-    if (depth == _maxDepth)
-        return max ? -evaluate() : evaluate();
+    if (depth == _maxDepth || !_board->isValid())
+    {
+        return max ? -(evaluate()-depth) : evaluate()-depth ;
+    }
+
     MoveList list;
     generateMoves(list);
     Move move;
@@ -60,7 +63,7 @@ int MinimaxStrategy::minimax(int depth)
         playMove(move);
         int val = minimax(depth+1);
         takeBack();
-        if ((max && val >= bestVal) || (!max && val <= bestVal)) {
+        if ((max && val > bestVal) || (!max && val < bestVal)) {
             bestVal = val;
             if (depth == 0)
             {
@@ -70,8 +73,7 @@ int MinimaxStrategy::minimax(int depth)
 	    }
 
     }
-    if (i == 0)
-        return max ? -evaluate() : evaluate();
+
     return bestVal;
 }
 

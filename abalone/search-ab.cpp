@@ -39,6 +39,7 @@ class ABStrategy: public SearchStrategy
 
  private:
      int nodes_evaluated;
+     int branches_cut_off[20];
     /**
      * Implementation of the strategy.
      */
@@ -49,58 +50,56 @@ class ABStrategy: public SearchStrategy
 int ABStrategy::alphaBeta(int depth, int alpha, int beta)
 {
     bool max = (depth + 1) % 2;//0=min, 1=max
-    if (depth == _maxDepth)
-        //return evaluate();
-        return max ? -evaluate() : evaluate();
-    int bestVal = max ? minEvaluation() : maxEvaluation() ;
+    if (depth == _maxDepth || !_board->isValid())
+    {
+        return -(evaluate()-depth);
+    }
+
     MoveList list;
     generateMoves(list);
     Move move;
+    int bestVal = minEvaluation();
     int i;
     for(i = 0; list.getNext(move); i++) {
         playMove(move);
-        int val;
-        val = alphaBeta(depth+1, -beta, -alpha);
-        // if(max)
-        // {
-        //     val = alphaBeta(depth+1, alpha, beta);
-        // }
-        // else
-        // {
-        //     val = -alphaBeta(depth+1, -beta, -alpha);
-        // }
+        int val = -alphaBeta(depth+1, -beta, -alpha);
         takeBack();
-        if ((max && val >= bestVal) || (!max && val <= bestVal)) {
+        if (val > bestVal) {
             bestVal = val;
             if (depth == 0)
             {
-                bestVal = val;
                 foundBestMove(depth, move, bestVal);
             }
         }
 
-        if(max && bestVal >= alpha)
+        if(bestVal > alpha)
         {
+            //printf("moving  alpha  from %d to %d at depth %d.  Beta is %d\n", alpha, bestVal, depth, beta);
             alpha = bestVal;
         }
-        else if(!max && bestVal <= beta) //minimizing player
-        {
-            beta = bestVal;
-        }
+
         if(alpha >= beta)
         {
+            branches_cut_off[depth]++;
             break;
         }
     }
-    if (i == 0) //if no possible moves
-        //return evaluate();
-        return max ? -evaluate() : evaluate();
+
     return bestVal;
 }
 
 void ABStrategy::searchBestMove()
 {
+    for(int i = 0; i<_maxDepth; i++)
+    {
+        branches_cut_off[i] = 0;
+    }
     eval = alphaBeta(0, -9999999, 9999999);
+    for(int i = 0; i<_maxDepth; i++)
+    {
+        //printf("     cut off %d branches at depth %d \n",branches_cut_off[i], i);
+    }
+
 }
 
 // register ourselve as a search strategy
