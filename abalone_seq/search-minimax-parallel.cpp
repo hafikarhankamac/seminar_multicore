@@ -81,7 +81,7 @@ int ParallelMinimaxStrategy::minimax(Board *board, Evaluator *eval, int depth, b
         board->playMove(move);
         int val = minimax(board, eval, depth + 1, !max, eval_counter);
         board->takeBack();
-        if ((max && val > bestVal) || (!max && val <= bestVal))
+        if ((max && val >= bestVal) || (!max && val <= bestVal))
         {
             bestVal = val;
         }
@@ -141,7 +141,7 @@ void ParallelMinimaxStrategy::searchBestMove()
     }
     for (int i = 0; i < values.size(); i++)
     {
-        if (values[i] > bestVal)
+        if (values[i] >= bestVal)
         {
             bestVal = values[i];
             foundBestMove(0, move_buffer[i], bestVal);
