@@ -36,7 +36,7 @@ public:
     {
         values.reserve(100);
         moves.reserve(100);
-        roundedValues.reserve(100);
+        integerValues.reserve(100);
         indices.reserve(100);
     }
     // Factory method: just return a new instance of this class
@@ -47,7 +47,7 @@ private:
      * Implementation of the strategy.
      */
     std::vector<double> values;
-    std::vector<int> roundedValues;
+    std::vector<int> integerValues;
     std::vector<Move> moves;
     std::vector<int> indices;
     int numSamples=8;
@@ -61,7 +61,7 @@ std::vector<Move> SamplingStrategy::sampleMoves()
     std::vector<Move> sampledMoves(numSamples);
     values.clear();
     moves.clear();
-    roundedValues.clear();
+    integerValues.clear();
     indices.clear();
     MoveList list;
     generateMoves(list);
@@ -70,12 +70,12 @@ std::vector<Move> SamplingStrategy::sampleMoves()
     while (list.getNext(m)) {
         moves.push_back(m);
         playMove(m);
-        roundedValues.push_back(evaluate());
+        integerValues.push_back(evaluate());
         takeBack();
         indices.push_back(i++);
     }
     std::sort(indices.begin(), indices.end(), [this](int i1, int i2) {
-        return this->roundedValues[i1] > this->roundedValues[i2];
+        return this->integerValues[i1] > this->integerValues[i2];
     });
     for (int i = 0; i < numSamples; ++i) {
         sampledMoves[i] = moves[indices[i]];
