@@ -65,7 +65,7 @@ int MinimaxStrategy::minimax(int depth)
         takeBack();
         if ((max && val > bestVal) || (!max && val < bestVal)) {
             bestVal = val;
-            if (depth == 0)
+            if (depth == startingDepth)
             {
                 bestVal = val;
                 foundBestMove(depth, move, bestVal);

@@ -66,7 +66,7 @@ int ABStrategy::alphaBeta(int depth, int alpha, int beta)
         takeBack();
         if (val > bestVal) {
             bestVal = val;
-            if (depth == 0)
+            if (depth == startingDepth)
             {
                 foundBestMove(depth, move, bestVal);
             }
@@ -94,11 +94,11 @@ void ABStrategy::searchBestMove()
     {
         branches_cut_off[i] = 0;
     }
-    eval = alphaBeta(0, -9999999, 9999999);
-    for(int i = 0; i<_maxDepth; i++)
-    {
-        //printf("     cut off %d branches at depth %d \n",branches_cut_off[i], i);
-    }
+    eval = alphaBeta(startingDepth, -9999999, 9999999);
+    // for(int i = 0; i<_maxDepth; i++)
+    // {
+    //     printf("     cut off %d branches at depth %d \n",branches_cut_off[i], i);
+    // }
 
 }
 

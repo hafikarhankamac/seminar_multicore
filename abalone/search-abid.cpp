@@ -38,14 +38,14 @@ class ABIDStrategy: public SearchStrategy
  * calls alpha/beta search
  */
 void ABIDStrategy::searchBestMove()
-{    
+{
     int alpha = -15000, beta = 15000;
     int nalpha, nbeta, currentValue = 0;
 
     _pv.clear(_maxDepth);
     _currentBestMove.type = Move::none;
     _currentMaxDepth=1;
-    
+
     /* iterative deepening loop */
     do {
 
@@ -77,14 +77,16 @@ void ABIDStrategy::searchBestMove()
 	     * the search has to be rerun with widened alpha/beta
 	     */
 	    if (currentValue <= nalpha) {
-		alpha = -15000;
-		if (beta<15000) beta = currentValue+1;
-		continue;
+    		alpha = -15000;
+    		if (beta<15000)
+                beta = currentValue+1;
+    		continue;
 	    }
 	    if (currentValue >= nbeta) {
-		if (alpha > -15000) alpha = currentValue-1;
-		beta=15000;
-		continue;
+    		if (alpha > -15000)
+                alpha = currentValue-1;
+    		beta=15000;
+    		continue;
 	    }
 	    break;
 	}
@@ -131,13 +133,13 @@ int ABIDStrategy::alphabeta(int depth, int alpha, int beta)
 
     /* check for an old best move in principal variation */
     if (_inPV) {
-	m = _pv[depth];
+    	m = _pv[depth];
 
-	if ((m.type != Move::none) &&
-	    (!list.isElement(m, 0, true)))
-	    m.type = Move::none;
+    	if ((m.type != Move::none) && (!list.isElement(m, 0, true)))
+    	    m.type = Move::none;
 
-	if (m.type == Move::none) _inPV = false;
+    	if (m.type == Move::none)
+            _inPV = false;
     }
 
     // first, play all moves with depth search
@@ -145,62 +147,64 @@ int ABIDStrategy::alphabeta(int depth, int alpha, int beta)
 
     while (1) {
 
-	// get next move
-	if (m.type == Move::none) {
+    	// get next move
+    	if (m.type == Move::none) {
             if (depthPhase)
-		depthPhase = list.getNext(m, maxType);
+    		    depthPhase = list.getNext(m, maxType);
             if (!depthPhase)
-		if (!list.getNext(m, Move::none)) break;
-	}
-	// we could start with a non-depth move from principal variation
-	doDepthSearch = depthPhase && (m.type <= maxType);
+    		    if (!list.getNext(m, Move::none))
+                    break;
+    	}
+    	// we could start with a non-depth move from principal variation
+    	doDepthSearch = depthPhase && (m.type <= maxType);
 
-	_board->playMove(m);
+    	_board->playMove(m);
 
-	/* check for a win position first */
-	if (!_board->isValid()) {
+    	/* check for a win position first */
+    	if (!_board->isValid()) {
 
-	    /* Shorter path to win position is better */
-	    value = 14999-depth;
-	}
-	else {
+    	    /* Shorter path to win position is better */
+    	    value = 14999-depth;
+    	}
+    	else {
 
             if (doDepthSearch) {
-		/* opponent searches for its maximum; but we want the
-		 * minimum: so change sign (for alpha/beta window too!)
-		 */
-		value = -alphabeta(depth+1, -beta, -alpha);
+    		/* opponent searches for its maximum; but we want the
+    		 * minimum: so change sign (for alpha/beta window too!)
+    		 */
+    		    value = -alphabeta(depth+1, -beta, -alpha);
             }
             else {
-		value = evaluate();
-	    }
-	}
+    		    value = evaluate();
+    	    }
+    	}
 
-	_board->takeBack();
+    	_board->takeBack();
 
-	/* best move so far? */
-	if (value > currentValue) {
-	    currentValue = value;
-	    _pv.update(depth, m);
+    	/* best move so far? */
+    	if (value > currentValue) {
+    	    currentValue = value;
+    	    _pv.update(depth, m);
 
-	    if (_sc) _sc->foundBestMove(depth, m, currentValue);
-	    if (depth == 0)
-		    _currentBestMove = m;
+    	    if (_sc) _sc->foundBestMove(depth, m, currentValue);
+    	    if (depth == 0)
+    		    _currentBestMove = m;
 
-	    /* alpha/beta cut off or win position ... */
-	    if (currentValue>14900 || currentValue >= beta) {
-		if (_sc) _sc->finishedNode(depth, _pv.chain(depth));
-		return currentValue;
-	    }
+    	    /* alpha/beta cut off or win position ... */
+    	    if (currentValue>14900 || currentValue >= beta) {
+    		    if (_sc)
+                    _sc->finishedNode(depth, _pv.chain(depth));
+    		    return currentValue;
+    	    }
 
-	    /* maximize alpha */
-	    if (currentValue > alpha) alpha = currentValue;
-	}
+    	    /* maximize alpha */
+    	    if (currentValue > alpha) alpha = currentValue;
+    	}
 
-	if (_stopSearch) break; // depthPhase=false;
-	m.type = Move::none;
+    	if (_stopSearch) break; // depthPhase=false;
+    	m.type = Move::none;
     }
-    
+
     if (_sc) _sc->finishedNode(depth, _pv.chain(depth));
 
     return currentValue;
