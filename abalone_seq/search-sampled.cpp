@@ -12,6 +12,7 @@
 #include <vector>
 #include <algorithm>
 #include <random>
+#include <iostream>
 
 /**
  * To create your own search strategy:
@@ -32,7 +33,7 @@ class SamplingStrategy : public SearchStrategy
 {
 public:
     // Defines the name of the strategy
-    SamplingStrategy() : SearchStrategy("SamplingStrategy") 
+    SamplingStrategy() : SearchStrategy("SamplingStrategy")
     {
         values.reserve(100);
         moves.reserve(100);
@@ -50,16 +51,18 @@ private:
     std::vector<int> integerValues;
     std::vector<Move> moves;
     std::vector<int> indices;
-    int numSamples=8;
+    const int threshold = 40;
+    const int numSamples = 8;
+    const int maxSamples = 16;
     int minimax(int = 0, bool = true);
     std::vector<Move> sampleMoves();
-    void searchBestMove();
+    void searchBestMove() override;
 };
 
 std::vector<Move> SamplingStrategy::sampleMoves()
 {
-    std::vector<Move> sampledMoves(numSamples);
-    values.clear();
+    std::vector<Move> sampledMoves; //(numSamples);
+    // values.clear();
     moves.clear();
     integerValues.clear();
     indices.clear();
@@ -67,19 +70,43 @@ std::vector<Move> SamplingStrategy::sampleMoves()
     generateMoves(list);
     Move m;
     int i = 0;
-    while (list.getNext(m)) {
+    while (list.getNext(m))
+    {
         moves.push_back(m);
         playMove(m);
         integerValues.push_back(evaluate());
         takeBack();
         indices.push_back(i++);
     }
-    std::sort(indices.begin(), indices.end(), [this](int i1, int i2) {
+    std::stable_sort(indices.begin(), indices.end(), [this](int i1, int i2) {
         return this->integerValues[i1] > this->integerValues[i2];
     });
-    for (int i = 0; i < numSamples; ++i) {
-        sampledMoves[i] = moves[indices[i]];
+    /* for (auto idx: indices) {
+        std::cout<<integerValues[idx]<<", ";
+    }*/
+    //std::cout<<"\n\n\n";
+    for (i = 0; i < std::min(numSamples, (int)indices.size()); ++i) {
+        auto idx = indices[i];
+        sampledMoves.push_back(moves[idx]);
     }
+    auto bestVal = integerValues[indices[0]];
+    while (true) {
+        if (i >= indices.size()) break;
+        auto idx = indices[i];
+        auto val = integerValues[idx];
+        if ((bestVal - val) > threshold) break;
+        sampledMoves.push_back(moves[idx]);
+        i++;
+    }
+    /*sampledMoves.push_back(moves[indices[0]]);
+    for (i=1; (
+            i < integerValues.size()) && 
+            (integerValues[indices[i - 1]] <= (integerValues[indices[i]] + threshold)
+        ); i++)
+    //for (auto idx: indices)
+    {
+        sampledMoves.push_back(moves[indices[i]]);
+    }*/
     return sampledMoves;
 }
 
@@ -91,7 +118,7 @@ int SamplingStrategy::minimax(int depth, bool max)
     if (moves.empty())
         return max ? -evaluate() : evaluate();
     int bestVal = max ? minEvaluation() : maxEvaluation();
-    for (auto move: moves) 
+    for (auto move : moves)
     {
         playMove(move);
         int val = minimax(depth + 1, !max);

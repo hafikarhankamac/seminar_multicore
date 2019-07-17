@@ -2,7 +2,7 @@
 ### Chosen compiler has to be in path (use "module" to setup environment)
 
 # Use this for GCC (warning: GCC < 4.2.x does not support OpenMP)
-CXX = g++
+CXX = icc
 
 # Use this for the Intel C++ compiler ("icc" is only the C version)
 #CXX = icpc
@@ -14,16 +14,16 @@ CXX = g++
 ### Options
 
 # Useful options for GCC
-CXXFLAGS=-O3 -fopenmp -std=c++11
+CXXFLAGS=-O3 -qopenmp -std=c++14
 #LDFLAGS=
 
 # Useful options for Intel C++
 #CXXFLAGS=-O3
-LDFLAGS=
+#LDFLAGS=
 
 
 LIB_OBJS = move.o board.o network.o search.o eval.o
-SEARCH_OBJS = $(LIB_OBJS) search-abid.o search-onelevel.o search-minimax.o search-minimax-parallel.o
+SEARCH_OBJS = $(LIB_OBJS) search-abid.o search-onelevel.o search-minimax.o search-minimax-parallel.o search-sampled.o search-learning.o
 
 all: player start referee
 
