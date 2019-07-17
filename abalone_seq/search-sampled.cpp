@@ -52,7 +52,7 @@ private:
     std::vector<int> integerValues;
     std::vector<Move> moves;
     std::vector<int> indices;
-    const int threshold = 40;
+    const int threshold = 25;
     const int numSamples = 8;
     const int maxSamples = 16;
     std::vector<Move> sampledMoves;

@@ -43,6 +43,8 @@ class ABStrategySorted: public SearchStrategy
  private:
      int nodes_evaluated;
      int branches_cut_off[20];
+     int numSamples=8;
+     int threshold=50;
     /**
      * Implementation of the strategy.
      */
@@ -76,9 +78,21 @@ int ABStrategySorted::alphaBeta(int depth, int alpha, int beta)
     std::stable_sort(indices.begin(), indices.end(), [&values](auto i1, auto i2) {
         return values[i1] > values[i2];
     });
-    for (auto idx: indices) {
-        sortedMoves.push_back(moves[idx]);
+    for (i = 0; i < std::min(numSamples, (int)indices.size()); i++) {
+        sortedMoves.push_back(moves[indices[i]]);
     }
+    auto firsVal = values[indices[0]];
+    while (true) {
+        if (i >= indices.size()) break;
+        auto idx = indices[i];
+        auto val = values[idx];
+        if ((firsVal - val) > threshold) break;
+        sortedMoves.push_back(moves[idx]);
+        i++;
+    }
+    /* for (auto idx: indices) {
+        sortedMoves.push_back(moves[idx]);
+    }*/
     int bestVal = minEvaluation();
     //int i;
     //for(i = 0; list.getNext(move); i++) {
