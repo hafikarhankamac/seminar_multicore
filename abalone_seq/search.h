@@ -109,12 +109,10 @@ class SearchStrategy
     // see Evaluator::calcEvaluation
     int evaluate();
 
-    // HAK
     // see Board::msecsToPlayactColor
     int msecsToPlayactColor();
     // see Board::msecsPassedbestMove
     int msecsPassedbestMove();
-    // HAK
 
     int _maxDepth;
     Board* _board;
