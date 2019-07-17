@@ -23,7 +23,7 @@ CXXFLAGS=-O3 -qopenmp -std=c++14
 
 
 LIB_OBJS = move.o board.o network.o search.o eval.o
-SEARCH_OBJS = $(LIB_OBJS) search-abid.o search-onelevel.o search-minimax.o search-minimax-parallel.o search-sampled.o search-learning.o
+SEARCH_OBJS = $(LIB_OBJS) search-abid.o search-onelevel.o search-minimax.o search-minimax-parallel.o search-sampled.o search-ab.o search-ab-sorted.o
 
 all: player start referee
 

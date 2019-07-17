@@ -39,6 +39,7 @@ public:
         moves.reserve(100);
         integerValues.reserve(100);
         indices.reserve(100);
+        sampledMoves.reserve(100);
     }
     // Factory method: just return a new instance of this class
     SearchStrategy *clone() { return new SamplingStrategy(); }
@@ -54,15 +55,16 @@ private:
     const int threshold = 40;
     const int numSamples = 8;
     const int maxSamples = 16;
+    std::vector<Move> sampledMoves;
     int minimax(int = 0, bool = true);
-    std::vector<Move> sampleMoves();
+    std::vector<Move>& sampleMoves();
     void searchBestMove() override;
 };
 
-std::vector<Move> SamplingStrategy::sampleMoves()
+std::vector<Move>& SamplingStrategy::sampleMoves()
 {
-    std::vector<Move> sampledMoves; //(numSamples);
     // values.clear();
+    sampledMoves.clear();
     moves.clear();
     integerValues.clear();
     indices.clear();
