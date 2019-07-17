@@ -153,6 +153,8 @@ class Board
 
   int getBestEval();
   void setStartingDepth(int d);
+  void setStartingAlpha(int d);
+  void setStartingBeta(int d);
 
   Move randomMove();
   void stopSearch();

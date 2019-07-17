@@ -891,6 +891,19 @@ void Board::setStartingDepth(int d)
     _ss->setStartingDepth(d);
 }
 
+void Board::setStartingAlpha(int d)
+{
+    if (!_ss) return;
+    _ss->setStartingAlpha(d);
+}
+
+void Board::setStartingBeta(int d)
+{
+    if (!_ss) return;
+    _ss->setStartingBeta(d);
+}
+
+
 void Board::setDepth(int d)
 {
     if (!_ss) return;
