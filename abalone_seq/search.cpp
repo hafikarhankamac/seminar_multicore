@@ -112,6 +112,12 @@ bool SearchCallbacks::afterEval()
 void SearchCallbacks::foundBestMove(int d, const Move& m, int value)
 {
     if (d+2 >= _verbose) return;
+    //if (d+2 >= _verbose)
+    //{
+	//    printf("foundBestMove d+2 = %d ...\n", (d+2));
+
+	//    return;
+    //}
 
     static const char* spaces = "                     ";
     printf(" %sNew best move '%s', value %d ...\n",
@@ -311,7 +317,6 @@ bool SearchStrategy::takeBack()
     return _board ? _board->takeBack() : false; 
 }
 
-// HAK
 int SearchStrategy::msecsToPlayactColor()
 {
     return _board ? _board->msecsToPlayactColor() : 0; 
@@ -321,7 +326,6 @@ int SearchStrategy::msecsPassedbestMove()
 {
     return _board ? _board->msecsPassedbestMove() : 0; 
 }
-// HAK
 
 void SearchStrategy::foundBestMove(int d, const Move& m, int eval)
 {
