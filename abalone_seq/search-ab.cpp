@@ -10,6 +10,7 @@
 #include "board.h"
 #include "eval.h"
 #include <tuple>
+#include <iostream>
 // #include "mpi.h"
 
 
@@ -96,6 +97,7 @@ void ABStrategy::searchBestMove()
         branches_cut_off[i] = 0;
     }
     eval = alphaBeta(startingDepth, -9999999, 9999999);
+    std::cout<<"Value of the played move: "<<eval<<"\n";
     // for(int i = 0; i<_maxDepth; i++)
     // {
     //     printf("     cut off %d branches at depth %d \n",branches_cut_off[i], i);
