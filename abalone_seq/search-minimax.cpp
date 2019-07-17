@@ -11,6 +11,9 @@
 #include "eval.h"
 #include <vector>
 #include <algorithm>
+#include <stdio.h>
+#include <stdlib.h>
+#include <sys/time.h>
 
 /**
  * To create your own search strategy:
@@ -42,39 +45,15 @@ class MinimaxStrategy: public SearchStrategy
      * Implementation of the strategy.
      */
     int minimax(int=0, bool=true);
-    void minimax_iter(bool max=true);
     void searchBestMove();
+    bool timedout = false;
+    Move selectedMove;
+    Move bestMove;
 };
 
-void MinimaxStrategy::minimax_iter(bool max)
-{
-    std::__throw_runtime_error("NotImplemented");
-    std::vector<MoveList> lists(_maxDepth);
-    // std::vector<std::vector<int>> values(_maxDepth);
-    // generateMoves(lists[0]);
-    int depth = 0;
-    int reached_depth = 0;
-    Move m;
-    bool hasNext = false;
-    while (true) {
-        // We are not interleaving, so generate moves
-        if (!hasNext) {
-            generateMoves(lists[depth]);
-            hasNext = lists[depth].getNext(m);
-            if (!hasNext) {  // Level is full
-                depth--;
-            }
-        }
-        else {
-            playMove(m);
-            hasNext = lists[depth].getNext(m);
-            depth++;
-        }
 
-    }
-}
 
-int MinimaxStrategy::minimax(int depth, bool max) 
+ int MinimaxStrategy::minimax(int depth, bool max) 
 {
     if (depth == _maxDepth) 
     {
@@ -90,26 +69,58 @@ int MinimaxStrategy::minimax(int depth, bool max)
     int bestVal = max ? minEvaluation() : maxEvaluation();
     while (moves.getNext(move)) 
     {
+        gettimeofday(&_board->t2,0);
+
+        int msecsPassed =
+	    (1000* _board->t2.tv_sec + _board->t2.tv_usec / 1000) -
+	    (1000* _board->t1.tv_sec + _board->t1.tv_usec / 1000);
+        //printf("Time Passed: %d\n", msecsPassed);
+        //printf("Threshold: %f\n", (_board->_init_time)*0.25*1000);
+        if(msecsPassed > (_board->_init_time)*0.25*1000)
+        {
+            //printf("Reached if in while\n");
+            timedout = true;
+            break;
+        }
         playMove(move);
-
-	// HAK
-	// play time left is smaller than best move time, then stop minimax search. 
-	if (msecsToPlayactColor() > 0 && msecsPassedbestMove() > 0)
-	{
-		if (msecsToPlayactColor() < msecsPassedbestMove())
-		{
-			takeBack();
-			break;
-		}
-	}
-	// HAK
-
         int val = minimax(depth + 1, !max);
         takeBack();
+        //printf("Threshold Base: %f\n", _board->_init_time);
+        //printf("Threshold: %f\n", (_board->_init_time)*0.25);
+
+        // if(msecsPassed < (_board->_init_time)*0.25)
+        // {
+        //     timedout = true;
+        //     takeBack();
+        //     break;
+        // }else{
+        //     takeBack();
+        // }
+
+        //printf("Played supposed move.\n");  
+        // play time left is smaller than best move time, then stop minimax search. 
+        /*
+        if (msecsToPlayactColor() > 0 && msecsPassedbestMove() > 0)
+        {
+            //printf("Time left = %d\n", msecsToPlayactColor());    
+            if (msecsToPlayactColor() < msecsPassedbestMove())
+            {
+                timedout = true;
+                takeBack();
+                //printf("Timed out in while!\n");
+                //foundBestMove(depth, move, bestVal);
+                break;
+            }
+        }
+
+        */
+        //int val = minimax(depth + 1, !max);
+        //takeBack();
         if ((max && val >= bestVal) || (!max && val <= bestVal)) 
         {
             bestVal = val;
-            foundBestMove(depth, move, bestVal);
+            bestMove = move;
+            foundBestMove(depth, bestMove, bestVal);
         }
     }
     return bestVal;
@@ -117,7 +128,28 @@ int MinimaxStrategy::minimax(int depth, bool max)
 
 void MinimaxStrategy::searchBestMove()
 {
-    minimax();
+    //_maxDepth = 0;
+    gettimeofday(&_board->t1,0);
+    int temp = _maxDepth;
+    while (true)
+    {
+        auto eval = minimax();
+        if (timedout) {
+            //printf("Timed out!\n");
+            break;
+        }
+        Move m = bestMove;
+        //foundBestMove(_maxDepth, m, eval);
+        //break;
+        _maxDepth++;
+        //printf("Reached here!\n");
+        //printf("field %d, direction %d, type %d\n", bestMove.field, bestMove.direction, bestMove.type);
+        //break;
+    }
+    timedout = false;
+    _maxDepth = temp;
+    
+    //minimax();
 }
 
 // register ourselve as a search strategy
