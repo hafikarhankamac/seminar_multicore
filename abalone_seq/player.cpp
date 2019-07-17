@@ -208,7 +208,8 @@ void printHelp(char* prg, bool printHeader)
 	   "  -n               Do not change evaluation function after own moves\n"
 	   "  -<integer>       Maximal number of moves before terminating\n"
 	   "  -p [host:][port] Connection to broadcast channel\n"
-	   "                   (default: 23412)\n\n");
+	   "                   (default: 23412)\n"
+	   "  -t [time] 	   Enter the same time as the tournament \n\n");
 
     printf(" Available search strategies for option '-s':\n");
 
@@ -242,7 +243,17 @@ void parseArgs(int argc, char* argv[])
 	    if (argv[arg][0]>='0' && argv[arg][0]<='9')
                strategyNo = argv[arg][0] - '0';
             continue;
-        }
+    }
+
+	if ((strcmp(argv[arg],"-t")==0) && (arg+1<argc)) {
+		arg++;
+		myBoard.setInitTime(atoi(argv[arg]));
+		if (atoi(argv[arg]) == 0) {
+		    printf("%s: WARNING - Ignoring tournament; %d secs to play\n",
+			   argv[0], atoi(argv[arg]));
+		}
+		continue;
+	}
 
 	if ((argv[arg][0] == '-') &&
 	    (argv[arg][1] >= '0') &&
@@ -303,6 +314,7 @@ int main(int argc, char* argv[])
     printf("Using strategy '%s' (depth %d) ...\n", ss->name(), maxDepth);
 
     myBoard.setSearchStrategy( ss );
+	//printf("Init time: %f\n", myBoard._init_time);
     ss->setEvaluator(&ev);
     ss->registerCallbacks(new SearchCallbacks(verbose));
 
