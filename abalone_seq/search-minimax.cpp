@@ -76,7 +76,7 @@ class MinimaxStrategy: public SearchStrategy
 	    (1000* _board->t1.tv_sec + _board->t1.tv_usec / 1000);
         //printf("Time Passed: %d\n", msecsPassed);
         //printf("Threshold: %f\n", (_board->_init_time)*0.25*1000);
-        if(msecsPassed > (_board->_init_time)*0.25*1000)
+        if(msecsPassed > (_board->_init_time)*0.05*1000)
         {
             //printf("Reached if in while\n");
             timedout = true;
@@ -97,9 +97,10 @@ class MinimaxStrategy: public SearchStrategy
         //     takeBack();
         // }
 
-        //printf("Played supposed move.\n");  
-        // play time left is smaller than best move time, then stop minimax search. 
-        /*
+    //printf("Played supposed move.\n");  
+	// HAK
+	// play time left is smaller than best move time, then stop minimax search. 
+    /*
         if (msecsToPlayactColor() > 0 && msecsPassedbestMove() > 0)
         {
             //printf("Time left = %d\n", msecsToPlayactColor());    
@@ -113,14 +114,18 @@ class MinimaxStrategy: public SearchStrategy
             }
         }
 
-        */
+    */
+
+
+	// HAK
+
         //int val = minimax(depth + 1, !max);
         //takeBack();
         if ((max && val >= bestVal) || (!max && val <= bestVal)) 
         {
             bestVal = val;
-            bestMove = move;
-            foundBestMove(depth, bestMove, bestVal);
+            if (depth == 0) bestMove = move;
+            //foundBestMove(depth, bestMove, bestVal);
         }
     }
     return bestVal;
@@ -128,7 +133,6 @@ class MinimaxStrategy: public SearchStrategy
 
 void MinimaxStrategy::searchBestMove()
 {
-    //_maxDepth = 0;
     gettimeofday(&_board->t1,0);
     int temp = _maxDepth;
     while (true)
@@ -139,7 +143,7 @@ void MinimaxStrategy::searchBestMove()
             break;
         }
         Move m = bestMove;
-        //foundBestMove(_maxDepth, m, eval);
+        foundBestMove(0, m, eval);
         //break;
         _maxDepth++;
         //printf("Reached here!\n");
