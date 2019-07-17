@@ -99,9 +99,7 @@ void Board::begin(int startColor)
   color1Count = color2Count = 14;
   _msecsToPlay[color1] = _msecsToPlay[color2] = 0;
 
-  // HAK
   _msecsPassedbestMove = 0;
-  // HAK
 
   ::srand(0); // Initialize random sequence
 }
@@ -116,9 +114,8 @@ void Board::clear()
   color1Count = color2Count = 0;
   _msecsToPlay[color1] = _msecsToPlay[color2] = 0;
 
-  // HAK
   _msecsPassedbestMove = 0;
-  // HAK
+
 }
 
 /** countFrom
