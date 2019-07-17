@@ -1,131 +1,227 @@
 /*
- * Search the game play tree for move leading to
- * position with highest evaluation
+ * Classes
+ * - Board: represents a game state
+ * - EvalScheme: evaluation scheme
  *
- * (c) 2005, Josef Weidendorfer
- */
+ * (c) 1997-2005, Josef Weidendorfer
+*/
 
-#ifndef SEARCH_H
-#define SEARCH_H
+#ifndef BOARD_H
+#define BOARD_H
 
 #include "move.h"
-
-class Board;
-class Evaluator;
+#include <sys/time.h>
 class SearchStrategy;
-
-class SearchCallbacks
-{
- public:
-    SearchCallbacks(int v = 0) { _verbose = v; }
-    virtual ~SearchCallbacks() {}
-    
-    // called at beginning of new search. If <msecs> >0,
-    // we will stop search (via afterEval) after that time
-    virtual void start(int msecsForSearch);
-    // called at beginning of new sub search
-    virtual void substart(char*);
-    // called after search is done
-    virtual void finished(Move&);
-    // called after each evaluation
-    // returns true to request stop of search
-    virtual bool afterEval();
-    // called when a new best move is found at depth d
-    virtual void foundBestMove(int d, const Move&, int value);
-    // called before children are visited
-    virtual void startedNode(int d, char*);
-    /**
-     * Called after needed children are visited
-     * Second parameter gives array of best move sequence found
-     */
-    virtual void finishedNode(int d, Move*);
-
-    int msecsPassed() { return _msecsPassed; }
-    int verbose() { return _verbose; }
-
- private:
-    int _verbose;
-    int _leavesVisited, _nodesVisited;
-    int _msecsPassed, _msecsForSearch;
-};
+class Evaluator;
 
 
-/*
- * Base class for search strategies
+/**
+ * Class MoveCounter
  *
- * Implement searchBestMove !
+ * Helper class for board characteristics:
+ * Counter for move types and connectivity
+ * See Board::countFrom().
  */
-class SearchStrategy
+class MoveCounter
 {
  public:
-    SearchStrategy(const char* n, int prio = 5);
-    virtual ~SearchStrategy() {};
+  enum InARowType { inARow2 = 0, inARow3, inARow4, inARow5, inARowCount };
 
-    /* get list of names of available strategies */
-    static const char** strategies();
-    /* factory for a named strategy */
-    static SearchStrategy* create(char*);
-    static SearchStrategy* create(int);
-    const char* name() { return _name; }
+  MoveCounter();
 
-    void registerCallbacks(SearchCallbacks* sc) { _sc = sc; }
-    void setMaxDepth(int d) { _maxDepth = d; }
-    void setEvaluator(Evaluator* e) { _ev = e; }
-
-    /* Start search and return best move. */
-    Move& bestMove(Board*);
-
-    /* return best move in depth 1 if last search got one */
-    virtual Move& nextMove();
-
-    /* factory method: should return instance of derived class */
-    virtual SearchStrategy* clone() = 0;
-
-    void stopSearch() { _stopSearch = true; }
-
- protected:
-    /**
-     * Overwrite this to implement your search strategy
-     * and set _bestMove
-    */
-    virtual void searchBestMove() = 0;
-
-    /**
-     * Some dispatcher methods for convenience.
-     * Call these from your search function
-     */
-    int minEvaluation();
-    int maxEvaluation();
-    // see Board::generateMoves
-    void generateMoves(MoveList& list);
-    // see Board::playMove
-    void playMove(const Move& m);
-    // see Board::takeBack
-    bool takeBack();
-    // see SearchCallbacks::foundBestMove
-    void foundBestMove(int d, const Move& m, int eval);
-    // see SearchCallbacks::finishedNode
-    void finishedNode(int d, Move* bestList);
-    // see Evaluator::calcEvaluation
-    int evaluate();
-
-    // see Board::msecsToPlayactColor
-    int msecsToPlayactColor();
-    // see Board::msecsPassedbestMove
-    int msecsPassedbestMove();
-
-    int _maxDepth;
-    Board* _board;
-    bool _stopSearch;
-    SearchCallbacks* _sc;
-    Evaluator* _ev;
-    Move _bestMove;
+  void init();
+  int  moveCount(int t) { return _moveCount[t]; }
+  void incType(int t) { _moveCount[t]++; }
+  int  moveSum();
+  int  rowCount(int r) { return _rowCount[r]; }
+  void incRow(int r) { _rowCount[r]++; }
 
  private:
-    const char* _name;
-    int _prio;
-    SearchStrategy* _next;
+  int _moveCount[Move::typeCount];
+  int _rowCount[inARowCount];
 };
 
+
+
+/**
+ * Board: represents a game state
+ *
+ * Includes methods for
+ * - play/take back moves
+ * - generate allowed moves
+ * - calculate rating for position
+ * - search for best move
+ */
+class Board
+{
+    friend class Evaluator;
+
+ public:
+  Board();
+  ~Board() {}
+
+  /* different states of one field */
+  enum {
+    out = 10, free = 0,
+    color1, color2, color1bright, color2bright
+  };
+  enum { AllFields = 121, /* visible + ring of unvisible around */
+         RealFields = 61, /* number of visible fields */
+         MvsStored = 100 };
+  enum { empty=0, 
+	 valid1,   // valid state with color1 to draw
+	 valid2,   // valid state with color2 to draw
+	 timeout1, // time out for color1 -> win for color2
+	 timeout2, // time out for color2 -> win for color1
+	 win1,     // color1 won
+	 win2,     // color2 won
+	 invalid };
+
+  /* fill Board with defined values */
+  void begin(int startColor);  /* start of a game */
+  void clear();                /* empty board     */
+
+  /* fields can't be changed ! */
+  int operator[](int no) const;
+
+  int actColor() const
+    { return color; }
+
+  /* helper in evaluation: calculate move type counts */
+  void countFrom(int startField, int color, MoveCounter&);
+
+  /* Generate list of allowed moves for player with <color>
+   * Returns a calculated value for actual position */
+  void generateMoves(MoveList& list);
+
+  /* Check if a game position is reachable from the current one.
+   * If <fuzzy> is false, this check includes times and move number.
+   * Returns move which was played. Returns move of type Move::none if not.
+   */
+  Move moveToReach(Board*, bool fuzzy);
+
+  /** Check if another board has same tokens set */
+  bool hasSameFields(Board*);
+
+
+  /* Play the given move.
+   * Played moves can be taken back (<MvsStored> moves are remembered)
+   * Time to play is adjusted if msecs > 0.
+   *
+   * Warning: Only moves that are generated with Board::generateMoves()
+   * should be passed. If the move cannot be played, an assertion is raised.
+   */
+  void playMove(const Move& m, int msecs = 0);
+  bool takeBack();    /* if not remembered, do nothing */
+  int movesStored();  /* return how many moves are remembered */
+
+  Move& lastMove()
+    { return storedMove[storedLast]; }
+
+  void showHist();
+  
+  /* Evaluator to use */
+  void setEvaluator(Evaluator* ev) { _ev = ev; }
+
+  void setActColor(int c) { color=c; }
+  void setColor1Count(int c) { color1Count = c; }
+  void setColor2Count(int c) { color2Count = c; }
+  void setField(int i, int v) { field[i] = v; }
+
+  void setSpyLevel(int);
+
+  int getColor1Count() 	  { return color1Count; }
+  int getColor2Count() 	  { return color2Count; }
+
+  bool isValid() { return (color1Count>8 && color2Count>8); }
+
+  /* Is this position valid, a winner position or invalid? */
+  int validState();
+
+  /* returns a string for the valid state */
+  static const char* stateDescription(int);
+
+  /* Check that color1Count & color2Count is consistent with board */
+  bool isConsistent();
+
+  /* Searching best move */
+  void setSearchStrategy(SearchStrategy* ss);
+  void setDepth(int d);
+  Move& bestMove();
+  /* next move in prinipal variation */
+  Move& nextMove();
+
+  Move randomMove();
+  void stopSearch();
+
+  void setMoveNo(int n) { _moveNo = n; }
+  void setMSecsToPlay(int c, int s) { _msecsToPlay[c] = s; }
+  int moveNo() { return _moveNo; }
+  int msecsToPlay(int c) { return _msecsToPlay[c]; }
+
+  /* Readable ASCII representation */
+  char* getState();
+  char* getShortState();
+  /* Returns true if new state was set */
+  bool setState(char*);
+
+  void setVerbose(int v) { _verbose = v; }
+
+  void updateSpy(bool b) { bUpdateSpy = b; }
+
+  /* simple terminal view of position */
+  void print();
+
+  static int fieldDiffOfDir(int d) { return direction[d]; }
+
+  double _init_time; 
+  struct timeval t1, t2;
+
+  int msecsToPlayactColor() { return _msecsToPlay[actColor()]/1000; }
+  void setMSecsPassedbestMove(int s) { _msecsPassedbestMove = s; }
+  int msecsPassedbestMove() { return _msecsPassedbestMove/1000; }
+  void setInitTime(int t) { _init_time = t; }
+  int getInitTime() { return _init_time/1000; }
+
+ private:
+  void setFieldValues();
+
+  /* helper function for generateMoves */
+  void generateFieldMoves(int, MoveList&);
+
+  // random seed
+  int seed;
+
+  int field[AllFields];         /* actual board */
+  int color1Count, color2Count;
+  int color;                    /* actual color */
+  Move storedMove[MvsStored];   /* stored moves */
+  int storedFirst, storedLast;  /* stored in ring puffer manner */
+  int _moveNo;                   /* move number in current game */
+  int _msecsToPlay[3];            /* time in seconds to play */
+
+  int _msecsPassedbestMove;	/* passed time in seconds best move on board */
+  
+  bool show, bUpdateSpy;
+
+  int spyLevel, spyDepth;
+  SearchStrategy* _ss;
+  Evaluator* _ev;
+  int _verbose;
+
+  /* constant arrays */
+  static int startBoard[AllFields];
+  static int order[RealFields];
+  static int direction[8];
+
+ public:
+  /* for fast evaluation */
+  int* fieldArray() { return field; }
+};
+
+inline int Board::operator[](int no) const
+{
+  return (no<12 || no>120) ? out : field[no];
+}
 
 #endif
