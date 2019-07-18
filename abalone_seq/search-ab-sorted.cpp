@@ -11,6 +11,8 @@
 #include "eval.h"
 #include <vector>
 #include <algorithm>
+#include <tuple>
+#include <iostream>
 // #include "mpi.h"
 
 
@@ -50,7 +52,42 @@ class ABStrategySorted: public SearchStrategy
      */
     int alphaBeta(int depth=0, int alpha = -999999, int beta = 999999);
     void searchBestMove();
+    std::vector<Move> sampleMoves();
 };
+
+std::vector<Move> ABStrategySorted::sampleMoves() 
+{
+    std::vector<Move> sortedMoves;
+    MoveList list;
+    Move move;
+    using Value = int;
+    std::vector<std::tuple<Move, Value>> actionValues;
+    generateMoves(list);
+    while (list.getNext(move))
+    {
+        playMove(move);
+        actionValues.push_back(std::make_tuple(move, evaluate()));
+        takeBack();
+    }
+    std::stable_sort(actionValues.begin(), actionValues.end(), [](auto a, auto b) {
+        return std::get<Value>(a) > std::get<Value>(b);
+    });
+    int i;
+    for (i = 0; i < std::min(numSamples, (int)actionValues.size()); i++) 
+    {
+        sortedMoves.push_back(std::get<Move>(actionValues[i]));
+    }
+    auto firstVal = std::get<Value>(actionValues[0]);
+    while (true) 
+    {
+        if (i >= actionValues.size()) break;
+        Move m; Value val; std::tie(m, val) = actionValues[i];
+        if ((firstVal - val) > threshold) break;
+        sortedMoves.push_back(m);
+        i++;
+    }
+    return sortedMoves;
+}
 
 int ABStrategySorted::alphaBeta(int depth, int alpha, int beta)
 {
@@ -59,44 +96,10 @@ int ABStrategySorted::alphaBeta(int depth, int alpha, int beta)
     {
         return -(evaluate()-depth);
     }
-    MoveList list;
-    generateMoves(list);
-    Move move;
-    std::vector<Move> moves;
-    std::vector<Move> sortedMoves;
-    std::vector<int> values;
-    std::vector<int> indices;
-    int i = 0;
-    while (list.getNext(move)) 
-    {
-        indices.push_back(i++);
-        playMove(move);
-        values.push_back(evaluate());
-        takeBack();
-        moves.push_back(move);
-    }
-    std::stable_sort(indices.begin(), indices.end(), [&values](auto i1, auto i2) {
-        return values[i1] > values[i2];
-    });
-    for (i = 0; i < std::min(numSamples, (int)indices.size()); i++) {
-        sortedMoves.push_back(moves[indices[i]]);
-    }
-    auto firsVal = values[indices[0]];
-    while (true) {
-        if (i >= indices.size()) break;
-        auto idx = indices[i];
-        auto val = values[idx];
-        if ((firsVal - val) > threshold) break;
-        sortedMoves.push_back(moves[idx]);
-        i++;
-    }
-    /* for (auto idx: indices) {
-        sortedMoves.push_back(moves[idx]);
-    }*/
+    
     int bestVal = minEvaluation();
-    //int i;
-    //for(i = 0; list.getNext(move); i++) {
-    for (auto move: sortedMoves)
+    auto moves = sampleMoves();
+    for (auto move: moves)
     {
         playMove(move);
         int val = -alphaBeta(depth+1, -beta, -alpha);
@@ -132,6 +135,7 @@ void ABStrategySorted::searchBestMove()
         branches_cut_off[i] = 0;
     }
     eval = alphaBeta(startingDepth, -9999999, 9999999);
+    std::cout<<"Eval for move: "<<eval<<"\n";
     // for(int i = 0; i<_maxDepth; i++)
     // {
     //     printf("     cut off %d branches at depth %d \n",branches_cut_off[i], i);
