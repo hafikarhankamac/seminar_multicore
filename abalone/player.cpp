@@ -67,7 +67,7 @@ int  numtasks, rank;
 
 //generate moves for worker threads - global vars
 bool g_first_generation, g_sort_moves = false, g_all_child_moves_generated[MOVE_ARRAY_SIZE];
-int g_first_move_index, g_number_child_moves_total[MOVE_ARRAY_SIZE], g_number_child_moves_processed[MOVE_ARRAY_SIZE];
+int g_first_move_index, g_first_moves_total, g_number_child_moves_total[MOVE_ARRAY_SIZE], g_number_child_moves_processed[MOVE_ARRAY_SIZE];
 Move g_first_move, g_second_move;
 MoveList g_first_moves_list, g_second_moves_list;
 Move g_first_move_array[MOVE_ARRAY_SIZE];
@@ -164,17 +164,22 @@ void MyDomain::received(char* str)
         bool is_next_move = true;
         g_first_moves_list.clear();
         myBoard.generateMoves(g_first_moves_list);
+        g_first_moves_total = g_first_moves_list.getLength(); //here
         //here sort the moves
         g_first_generation = true;
         g_first_move_index = 0;
 
         //for each move, store its best move (min round ->store minimum)
-        int best_eval_array[MOVE_ARRAY_SIZE]; // is equal to beta for given branch
-        Move percieved_second_move_array[MOVE_ARRAY_SIZE], bestMove, percieved_second_move;
+        int best_eval_array[g_first_moves_total]; // is equal to beta for given branch
+        //int best_eval_array[MOVE_ARRAY_SIZE]; // is equal to beta for given branch
+        Move percieved_second_move_array[g_first_moves_total], bestMove, percieved_second_move;
         int i;
         for(i=0; i< MOVE_ARRAY_SIZE; i++ )
         {
-            best_eval_array[i]=MAX_EVAL_VALUE;
+            if(i < g_first_moves_total )
+            {
+                best_eval_array[i]=MAX_EVAL_VALUE;
+            }
 
             g_all_child_moves_generated[i]=false;
             g_number_child_moves_total[i]=0;
@@ -204,32 +209,17 @@ void MyDomain::received(char* str)
                 {
                     //generate a move into global variables g_first_move g_second_move
                     is_next_move = generate_move();
-
-                    if(best_eval >= best_eval_array[g_first_move_index])//cut off - do not create a task
+                    if(is_next_move)
                     {
-
-                        //printf("        cut off %d for move %d, alpha %d beta %d \n", g_first_move_index, g_number_child_moves_processed[g_first_move_index], best_eval, best_eval_array[g_first_move_index]);
-
-                        g_number_child_moves_processed[g_first_move_index]++;
-                        if(g_number_child_moves_total[g_first_move_index] == g_number_child_moves_processed[g_first_move_index])
+                        if(best_eval >= best_eval_array[g_first_move_index])//cut off - do not create a task
                         {
-                            //printf(" best eval %d from %d - move %d \n", best_eval_array[move_index], slave_rank, move_index);
-
-                            if(best_eval_array[g_first_move_index] > best_eval )
-                            {
-                                best_eval = best_eval_array[g_first_move_index];
-                                bestMove = g_first_move_array[g_first_move_index];
-                                percieved_second_move = percieved_second_move_array[g_first_move_index];
-                                //printf("found new GLOBAL best eval %d from %d - move %d \n", best_eval_array[move_index], slave_rank, move_index);
-                            }
+                            //printf("        cut off %d for move %d, alpha %d beta %d \n", g_first_move_index, g_number_child_moves_processed[g_first_move_index], best_eval, best_eval_array[g_first_move_index]);
+                            g_number_child_moves_processed[g_first_move_index]++;
+                            continue;
                         }
-
-                        continue;
-                    }
-                    else
-                    {
-                        if(is_next_move)
+                        else
                         {
+
                             MPI_Irecv(tmp_buf, 0, MPI_CHAR, slave_rank, TAG_ASK_FOR_JOB, MPI_COMM_WORLD, &message_type);
                             MPI_Isend(str, 1024, MPI_CHAR, slave_rank, TAG_JOB_DATA, MPI_COMM_WORLD, &data_send_1);
                             send_move_data[0] = g_first_move_index;
@@ -271,8 +261,6 @@ void MyDomain::received(char* str)
 
                 int move_index = return_vals[0];
                 g_number_child_moves_processed[move_index]++;
-
-
                 //printf("             index  %d  all_generated  %d  ,_generated  %d  _calculated  %d \n", move_index, g_all_child_moves_generated[move_index],  g_number_child_moves_total[move_index], g_number_child_moves_processed[move_index] );
 
                 if (return_vals[4] < best_eval_array[move_index]) // search for min in each subtree
@@ -286,7 +274,6 @@ void MyDomain::received(char* str)
                 }
 
                 //if all sub-moves of this move are computed, check if best move can be updated
-                //here if(g_all_child_moves_generated[move_index] && g_number_child_moves_total[move_index] == g_number_child_moves_processed[move_index])
                 if(g_number_child_moves_total[move_index] == g_number_child_moves_processed[move_index])
                 {
                     //printf(" best eval %d from %d - move %d \n", best_eval_array[move_index], slave_rank, move_index);
@@ -363,61 +350,56 @@ bool MyDomain::generate_move()
     }
     else
     {
-      //play first move in the first round and generate list of second moves
-      if(g_first_generation)
-      {
-          g_first_generation = false;
-          g_first_move_index = 0;
+        //play first move in the first round and generate list of second moves
+        if(g_first_generation)
+        {
+            g_first_generation = false;
 
-          //bool move_available = g_first_moves_list.getNext(g_first_move);
-          if(g_first_moves_list.getNext(g_first_move))
-          {
-              myBoard.playMove(g_first_move);
-              g_first_move_array[g_first_move_index] = g_first_move;
-              g_second_moves_list.clear();
-              myBoard.generateMoves(g_second_moves_list);
-              g_number_child_moves_total[g_first_move_index] = g_second_moves_list.getLength(); //here
-          }
-          else
-          {
-              printf("!!!SHOULD NOT HAPPEN 2\n \n \n \n \n \n \n \n generate_move - false.  %s\n", g_first_move.name());
-              return false;
-          }
-      }
-      if(!g_second_moves_list.getNext(g_second_move)) //try playing next first move and generate second moves for it
-      {
-          //printf("generated all moves for %d \n", g_first_move_index);
-          //hereg_all_child_moves_generated[g_first_move_index] = true;
-          myBoard.takeBack();
-          if(g_first_moves_list.getNext(g_first_move))
-          {
-              g_first_move_index++;
-              //here g_number_child_moves_total[g_first_move_index] = 0;
 
-              myBoard.playMove(g_first_move);
-              g_first_move_array[g_first_move_index] = g_first_move;
+            //bool move_available = g_first_moves_list.getNext(g_first_move);
+            if(g_first_moves_list.getNext(g_first_move))
+            {
+                g_first_move_index = 0;
+                myBoard.playMove(g_first_move);
+                g_first_move_array[g_first_move_index] = g_first_move;
 
-              g_second_moves_list.clear();
-              myBoard.generateMoves(g_second_moves_list);
-              g_number_child_moves_total[g_first_move_index] = g_second_moves_list.getLength(); //here
-              //printf("printing board after play_move %d \n", g_first_move_index);
-              //myBoard.print();
-              if(!g_second_moves_list.getNext(g_second_move))
-              {
-                  printf("!!!SHOULD NOT HAPPEN 1\n \n \n \n \n \n \n \n generate_move - no more first moves. %d  %s xxxxx %s \n",g_first_move_index,  g_first_move.name(), g_second_move.name());
-                  return false;
-              }
-          }
-          else //no more first move
-          {
-              g_first_move_index++;
-              return false;
-          }
-          //now second move is generated
-      }
-      //here g_number_child_moves_total[g_first_move_index]++;
-      //the two moves are in g_first_move, g_second_move
-      return true;
+                g_second_moves_list.clear();
+                myBoard.generateMoves(g_second_moves_list);
+                g_number_child_moves_total[g_first_move_index] = g_second_moves_list.getLength(); //here
+            }
+            else
+            {
+                printf("!!!SHOULD NOT HAPPEN 2\n \n \n \n \n \n \n \n generate_move - false.  %s\n", g_first_move.name());
+                return false;
+            }
+        }
+        if(!g_second_moves_list.getNext(g_second_move)) //try playing next first move and generate second moves for it
+        {
+            //printf("generated all moves for %d \n", g_first_move_index);
+            myBoard.takeBack();
+            if(g_first_moves_list.getNext(g_first_move))
+            {
+                g_first_move_index++;
+                myBoard.playMove(g_first_move);
+                g_first_move_array[g_first_move_index] = g_first_move;
+
+                g_second_moves_list.clear();
+                myBoard.generateMoves(g_second_moves_list);
+                g_number_child_moves_total[g_first_move_index] = g_second_moves_list.getLength(); //here
+
+                if(!g_second_moves_list.getNext(g_second_move))
+                {
+                    printf("!!!SHOULD NOT HAPPEN 1\n \n \n \n \n \n \n \n generate_move - no more first moves. %d  %s xxxxx %s \n",g_first_move_index,  g_first_move.name(), g_second_move.name());
+                    return false;
+                }
+            }
+            else //no more first move
+            {
+                return false;
+            }
+        }
+        //the two moves are in g_first_move, g_second_move
+        return true;
     }
 }
 
