@@ -18,7 +18,7 @@ CXX = mpiCC
 #LDFLAGS=
 
 # Useful options for Intel C++
-CXXFLAGS=-O3 --std=c++14
+CXXFLAGS=-O3
 
 LDFLAGS=
 
