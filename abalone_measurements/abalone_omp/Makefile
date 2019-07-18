@@ -18,7 +18,7 @@ CXX = icpc
 #LDFLAGS=
 
 # Useful options for Intel C++
-CXXFLAGS=-O3 -qopenmp --std=c++14
+CXXFLAGS=-O3 -qopenmp
 
 LDFLAGS=
 
@@ -46,7 +46,7 @@ networktest: tests/networktest.o network.o
 board.o: board.h board.cpp search.cpp
 move.o: move.h move.cpp
 network.o: network.h network.cpp
-player.o: player.cpp 
+player.o: player.cpp
 search.o: search.cpp board.cpp move.cpp
 eval.o: eval.cpp board.cpp
 start.o: start.cpp board.cpp move.cpp

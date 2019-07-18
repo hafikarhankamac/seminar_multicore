@@ -55,17 +55,17 @@ int MoveCounter::moveSum()
 
 /* Board for start of a game */
 int Board::startBoard[]={
-                       10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10,
-	             10,  1,  1,  1,  1,  1, 10, 10, 10, 10, 10,
-	           10,  1,  1,  1,  1,  1,  1, 10, 10, 10, 10,
-                 10,  0,  0,  1,  1,  1,  0,  0, 10, 10, 10,
-	       10,  0,  0,  0,  0,  0,  0,  0,  0, 10, 10,
-             10,  0,  0,  0,  0,  0,  0,  0,  0,  0, 10,
-           10, 10,  0,  0,  0,  0,  0,  0,  0,  0, 10,
-         10, 10, 10,  0,  0,  2,  2,  2,  0,  0, 10,
-       10, 10, 10, 10,  2,  2,  2,  2,  2,  2, 10,
-     10, 10, 10, 10, 10,  2,  2,  2,  2,  2, 10,
-   10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10          };
+                        10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10,
+            	      10,  1,  1,  1,  1,  1, 10, 10, 10, 10, 10,
+            	    10,  1,  1,  1,  1,  1,  1, 10, 10, 10, 10,
+                  10,  0,  0,  1,  1,  1,  0,  0, 10, 10, 10,
+            	10,  0,  0,  0,  0,  0,  0,  0,  0, 10, 10,
+              10,  0,  0,  0,  0,  0,  0,  0,  0,  0, 10,
+            10, 10,  0,  0,  0,  0,  0,  0,  0,  0, 10,
+          10, 10, 10,  0,  0,  2,  2,  2,  0,  0, 10,
+        10, 10, 10, 10,  2,  2,  2,  2,  2,  2, 10,
+      10, 10, 10, 10, 10,  2,  2,  2,  2,  2, 10,
+    10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10          };
 
 
 /* first centrum of board, then rings around (numbers are indexes) */
@@ -404,7 +404,7 @@ Move Board::moveToReach(Board* b, bool fuzzy)
     int state = validState();
     if ((state != valid1) && (state != valid2))
 	return m;
-    
+
     if (!fuzzy) {
 	if (b->moveNo() != _moveNo+1) {
 	    if (_verbose)
@@ -835,7 +835,7 @@ int Board::validState()
 	res = win2;
     else
 	res = win1;
-    
+
 #ifdef MYTRACE
     if (spyLevel>2) {
 	indent(spyDepth);
@@ -882,7 +882,7 @@ bool Board::isConsistent()
 
 void Board::setSearchStrategy(SearchStrategy* ss)
 {
-    _ss = ss; 
+    _ss = ss;
 }
 
 void Board::setStartingDepth(int d)
@@ -891,10 +891,23 @@ void Board::setStartingDepth(int d)
     _ss->setStartingDepth(d);
 }
 
+void Board::setStartingAlpha(int d)
+{
+    if (!_ss) return;
+    _ss->setStartingAlpha(d);
+}
+
+void Board::setStartingBeta(int d)
+{
+    if (!_ss) return;
+    _ss->setStartingBeta(d);
+}
+
+
 void Board::setDepth(int d)
 {
     if (!_ss) return;
-    _ss->setMaxDepth(d+1); 
+    _ss->setMaxDepth(d+1);
 }
 
 Move& Board::bestMove()
@@ -912,12 +925,12 @@ int Board::getBestEval()
 
 Move& Board::nextMove()
 {
-    return _ss->nextMove(); 
+    return _ss->nextMove();
 }
 
 void Board::stopSearch()
 {
-    _ss->stopSearch(); 
+    _ss->stopSearch();
 }
 
 Move Board::randomMove()
@@ -974,7 +987,7 @@ char* Board::getState()
     char spaces[]="      ";
     const char *z[]={". ","O ","X ", "o ", "x "};
 
-    
+
     pos = sprintf(b, "\n");
     if (_moveNo>=0)
       pos += sprintf(b+pos, "%s\n", getShortState());
@@ -1012,7 +1025,7 @@ bool Board::setState(char* s)
   color2Count = 0;
   _msecsToPlay[color1] = 0;
   _msecsToPlay[color2] = 0;
- 
+
   if (s == 0) return false;
 
   while(*s) {
@@ -1097,4 +1110,3 @@ void Board::setSpyLevel(int level)
 {
   spyLevel = level;
 }
-

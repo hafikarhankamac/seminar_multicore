@@ -18,13 +18,13 @@ CXX = mpiCC
 #LDFLAGS=
 
 # Useful options for Intel C++
-CXXFLAGS=-O3 --std=c++14
+CXXFLAGS=-O3
 
 LDFLAGS=
 
 
 LIB_OBJS = move.o board.o network.o search.o eval.o
-SEARCH_OBJS = $(LIB_OBJS) search-abid.o search-onelevel.o search-minimax.o search-ab.o
+SEARCH_OBJS = $(LIB_OBJS) search-abid.o search-onelevel.o search-minimax.o search-ab.o search-ab-sorted.o
 
 all: player start referee
 
@@ -46,7 +46,7 @@ networktest: tests/networktest.o network.o
 board.o: board.h board.cpp search.cpp
 move.o: move.h move.cpp
 network.o: network.h network.cpp
-player.o: player.cpp 
+player.o: player.cpp
 search.o: search.cpp board.cpp move.cpp
 eval.o: eval.cpp board.cpp
 start.o: start.cpp board.cpp move.cpp
@@ -55,3 +55,4 @@ search-onelevel.o: search.h board.h eval.h
 search-minimax.o: search.h board.h eval.h
 search-abid.o: search.h board.h
 search-ab.o: search.h board.h eval.h
+search-ab-sorted.o: search.h board.h eval.h

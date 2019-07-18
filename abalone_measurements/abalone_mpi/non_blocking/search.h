@@ -71,6 +71,10 @@ class SearchStrategy
     void registerCallbacks(SearchCallbacks* sc) { _sc = sc; }
     void setMaxDepth(int d) { _maxDepth = d; }
     void setStartingDepth(int d) { startingDepth = d; }
+    void setStartingAlpha(int d) { startingAlpha = d; }
+    void setStartingBeta(int d) { startingBeta = d; }
+
+
     void setEvaluator(Evaluator* e) { _ev = e; }
 
     /* Start search and return best move. */
@@ -120,6 +124,8 @@ class SearchStrategy
     Evaluator* _ev;
     Move _bestMove;
     int startingDepth = 0;
+    int startingAlpha = -99999;
+    int startingBeta = 99999;
 
  private:
 
