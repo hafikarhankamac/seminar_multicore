@@ -30,6 +30,7 @@
 #define TAG_DO_NOTHING 6
 
 #define MOVE_ARRAY_SIZE 150
+#define BOARD_SIZE 1024
 #define MAX_EVAL_VALUE 99999
 
 
@@ -160,47 +161,37 @@ void MyDomain::received(char* str)
     	gettimeofday(&t1,0);
 
         ////////////////////////////////MPI
-        int best_eval = -MAX_EVAL_VALUE; // is equal to alpha
-        bool is_next_move = true;
+        MPI_Status status, status2;
+        MPI_Request message_type, data_send_1, data_send_2, data_recv_1, data_recv_2, request;
+        int i;
+        char tmp_buf [2];
+
         g_first_moves_list.clear();
         myBoard.generateMoves(g_first_moves_list);
-        g_first_moves_total = g_first_moves_list.getLength(); //here
+        g_first_moves_total = g_first_moves_list.getLength();
         //here sort the moves
         g_first_generation = true;
         g_first_move_index = 0;
 
         //for each move, store its best move (min round ->store minimum)
         int best_eval_array[g_first_moves_total]; // is equal to beta for given branch
-        //int best_eval_array[MOVE_ARRAY_SIZE]; // is equal to beta for given branch
-        Move percieved_second_move_array[g_first_moves_total], bestMove, percieved_second_move;
-        int i;
-        for(i=0; i< MOVE_ARRAY_SIZE; i++ )
-        {
-            if(i < g_first_moves_total )
-            {
-                best_eval_array[i]=MAX_EVAL_VALUE;
-            }
+        int best_eval = -MAX_EVAL_VALUE; // is equal to alpha
+        int debug_branches_skipped
 
+        Move percieved_second_move_array[g_first_moves_total], bestMove, percieved_second_move;
+
+        for(i=0; i< g_first_moves_total; i++ )
+        {
+            best_eval_array[i]=MAX_EVAL_VALUE;
             g_all_child_moves_generated[i]=false;
             g_number_child_moves_total[i]=0;
             g_number_child_moves_processed[i]=0;
         }
-        int top_level_alpha = -MAX_EVAL_VALUE;
 
-        MPI_Status status, status2;
-        MPI_Request message_type, data_send_1, data_send_2, data_recv_1, data_recv_2, request;
-        char tmp_buf [2];
-        int tasks_created = 0;
-        int tasks_completed = 0;
-        int send_move_data[9];//0=first move index; 1-3 = first move, 4-6 = second move, 7=alpha, 8=beta,
-        while(true)
+        int tasks_created = 0, tasks_completed = 0;
+        bool is_next_move = true;
+        while(is_next_move || tasks_created > tasks_completed) //loop until there is no new task to create and all pending tasks are calculated
         {
-
-            if(tasks_created == tasks_completed && !is_next_move)
-            {
-                if (verbose>1){printf("all moves evaluated .. %d \n", tasks_completed);}
-                break;
-            }
             MPI_Probe(MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
             int slave_rank = status.MPI_SOURCE;
             if (status.MPI_TAG == TAG_ASK_FOR_JOB)
@@ -219,9 +210,9 @@ void MyDomain::received(char* str)
                         }
                         else
                         {
-
+                            int send_move_data[9];//0=first move index; 1-3 = first move, 4-6 = second move, 7=alpha, 8=beta,
                             MPI_Irecv(tmp_buf, 0, MPI_CHAR, slave_rank, TAG_ASK_FOR_JOB, MPI_COMM_WORLD, &message_type);
-                            MPI_Isend(str, 1024, MPI_CHAR, slave_rank, TAG_JOB_DATA, MPI_COMM_WORLD, &data_send_1);
+                            MPI_Isend(str, BOARD_SIZE, MPI_CHAR, slave_rank, TAG_JOB_DATA, MPI_COMM_WORLD, &data_send_1);
                             send_move_data[0] = g_first_move_index;
                             send_move_data[1] = (int)g_first_move.field;
                             send_move_data[2] = (int)g_first_move.direction;
@@ -232,12 +223,11 @@ void MyDomain::received(char* str)
                             send_move_data[7] = best_eval;//current alpha
                             send_move_data[8] = best_eval_array[g_first_move_index];//cuttent beta
                             MPI_Isend(send_move_data, 9, MPI_INT, slave_rank, TAG_JOB_DATA_2, MPI_COMM_WORLD, &data_send_2);
-                            if (verbose>1){printf("sending data no.%d to proc %d \n", tasks_created, slave_rank);}
+                            if (verbose>2)
+                                printf("sending data no.%d to proc %d \n", tasks_created, slave_rank);
                             tasks_created++;
                         }
                     }
-
-
                 }
 
                 if(!is_next_move) //there is no next move but have to wait for other workers to finish the round
@@ -251,9 +241,8 @@ void MyDomain::received(char* str)
             }
             else if (status.MPI_TAG == TAG_RESULT)
             {
-                if (verbose>1){
+                if (verbose>2)
                   printf("receiving data no.%d from proc %d \n", tasks_completed, slave_rank);
-                }
 
                 int return_vals[5];//0=first move index; 1-3 = second move, 4 = eval;
                 MPI_Irecv(return_vals, 5, MPI_INT, slave_rank, TAG_RESULT, MPI_COMM_WORLD, &data_recv_1);
@@ -261,34 +250,35 @@ void MyDomain::received(char* str)
 
                 int move_index = return_vals[0];
                 g_number_child_moves_processed[move_index]++;
-                //printf("             index  %d  all_generated  %d  ,_generated  %d  _calculated  %d \n", move_index, g_all_child_moves_generated[move_index],  g_number_child_moves_total[move_index], g_number_child_moves_processed[move_index] );
 
                 if (return_vals[4] < best_eval_array[move_index]) // search for min in each subtree
                 {
                     best_eval_array[move_index] = return_vals[4];
                     percieved_second_move_array[move_index] = Move((short)return_vals[1], (unsigned char)return_vals[2], (Move::MoveType)return_vals[3]);
-                    if (verbose>1){
+                    if (verbose>1)
                         printf("found new best eval %d from %d - %s \n", return_vals[4], slave_rank, g_first_move_array[move_index].name());
-                        //myBoard.print();
-                    }
                 }
 
                 //if all sub-moves of this move are computed, check if best move can be updated
                 if(g_number_child_moves_total[move_index] == g_number_child_moves_processed[move_index])
                 {
-                    //printf(" best eval %d from %d - move %d \n", best_eval_array[move_index], slave_rank, move_index);
+                    if (verbose>2)
+                        printf(" best eval %d from %d - move %d \n", best_eval_array[move_index], slave_rank, move_index);
 
                     if(best_eval_array[move_index] > best_eval )
                     {
                         best_eval = best_eval_array[move_index];
                         bestMove = g_first_move_array[move_index];
                         percieved_second_move = percieved_second_move_array[move_index];
-                        //printf("     found new GLOBAL best eval %d from %d - move %d \n", best_eval_array[move_index], slave_rank, move_index);
+                        if (verbose>0)
+                            printf("     found new GLOBAL best eval %d from %d - move %d \n", best_eval_array[move_index], slave_rank, move_index);
                     }
                 }
                 tasks_completed++;
             }
         }
+        if (verbose>1)
+            printf("all moves evaluated .. %d \n", tasks_completed);
 
         printf("eval of the played move: %d \n", best_eval);
         ////////////////////////////////
@@ -565,7 +555,7 @@ int main(int argc, char* argv[])
         int cnt = 0;
         while(true)
         {
-            char board[1024];
+            char board[BOARD_SIZE];
             MPI_Send(board, 0 , MPI_CHAR, 0, TAG_ASK_FOR_JOB , MPI_COMM_WORLD ) ;
             MPI_Probe (0, MPI_ANY_TAG , MPI_COMM_WORLD , &status ) ;
             if( status.MPI_TAG == TAG_JOB_DATA )
@@ -576,17 +566,16 @@ int main(int argc, char* argv[])
                     MPI_Wait(&data_send_1, &status2);
                 }
                 int recv_move_data[9];//0=first move index; 1-3=first move, 4-6=second move, 7=alpha, 8=beta
-                MPI_Irecv(board, 1024, MPI_CHAR, 0, TAG_JOB_DATA, MPI_COMM_WORLD, &data_recv_1);
+                MPI_Irecv(board, BOARD_SIZE, MPI_CHAR, 0, TAG_JOB_DATA, MPI_COMM_WORLD, &data_recv_1);
                 MPI_Irecv(recv_move_data, 9, MPI_INT, 0, TAG_JOB_DATA_2, MPI_COMM_WORLD, &data_recv_2);
                 MPI_Wait(&data_recv_2, &status2);
                 m1 = Move((short)recv_move_data[1], (unsigned char)recv_move_data[2], (Move::MoveType)recv_move_data[3]);
                 m2 = Move((short)recv_move_data[4], (unsigned char)recv_move_data[5], (Move::MoveType)recv_move_data[6]);
                 MPI_Wait(&data_recv_1, &status2);
+
                 myBoard.setState(board+4);
                 myBoard.playMove(m1);
                 myBoard.playMove(m2);
-                    //myBoard.print();
-                    //printf("data no.%d from proc 0 playing move %s \n", cnt, m.name());
                 myBoard.setStartingAlpha(recv_move_data[7]);
                 myBoard.setStartingBeta(recv_move_data[8]);
                 myBoard.setStartingDepth(2);
@@ -616,6 +605,5 @@ int main(int argc, char* argv[])
     }
     MPI_Finalize();
     ////////////////////////////////
-
 
 }
