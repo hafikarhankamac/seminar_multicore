@@ -18,7 +18,7 @@ CXX = icpc
 #LDFLAGS=
 
 # Useful options for Intel C++
-CXXFLAGS=-O3 -qopenmp --std=c++14
+CXXFLAGS=-O3 -qopenmp
 
 LDFLAGS=
 
