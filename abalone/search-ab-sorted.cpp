@@ -47,7 +47,7 @@ class ABStrategySorted: public SearchStrategy
 
  private:
      int counter = 0;
-     char tmp_char[2];
+     int terminate;
 
      int nodes_evaluated;
      int branches_cut_off[20];
@@ -103,16 +103,24 @@ std::vector<Move> ABStrategySorted::sampleMoves()
 int ABStrategySorted::alphaBeta(int depth, int alpha, int beta)
 {
     counter++;
-    if(counter%10 == 0)
+    if(counter%1 == 0)
     {
         int message_available;
         MPI_Status st;
-        MPI_Test(&request, &message_available, &st);
-        //if(st.MPI_ERROR >= 0)
-            printf("  %d               error      %d cancelled %d \n", message_available, st.MPI_ERROR, st._cancelled);
-        usleep(100000);
+        // MPI_Test(&request, &message_available, &st);
+        // //if(st.MPI_ERROR >= 0)
+        //     printf("  %d               error      %d cancelled %d \n", message_available, st.MPI_ERROR, st._cancelled);
+        // usleep(100000);
+        //
+        // if(message_available)
+        // {
+        //     int rank;
+        //     MPI_Comm_rank(MPI_COMM_WORLD,&rank);
+        //     printf("cutting off worker %d\n", rank);
+        //     return TERMINATED_BEST_VAL;
+        // }
 
-        if(message_available)
+        if(terminate == 1)
         {
             int rank;
             MPI_Comm_rank(MPI_COMM_WORLD,&rank);
@@ -123,6 +131,9 @@ int ABStrategySorted::alphaBeta(int depth, int alpha, int beta)
         // MPI_Wait(&request, &st);
         // int rank;
         // MPI_Comm_rank(MPI_COMM_WORLD,&rank);
+        // //if(st.MPI_ERROR >= 0)
+        // printf("  %d   terminate=%d            error      %d cancelled %d \n", message_available, terminate, st.MPI_ERROR, st._cancelled);
+        //
         // printf("cutting off worker %d\n", rank);
         // return TERMINATED_BEST_VAL;
 
@@ -213,7 +224,8 @@ void ABStrategySorted::searchBestMove()
         branches_cut_off[i] = 0;
     }
     counter = 0;
-    MPI_Irecv(tmp_char, 1, MPI_CHAR, 0, TAG_TERMINATE_COMPUTATION, MPI_COMM_WORLD, &request);
+    terminate = 0;
+    MPI_Irecv(&terminate, 1, MPI_INT, 0, TAG_TERMINATE_COMPUTATION, MPI_COMM_WORLD, &request);
     eval = alphaBeta(startingDepth, startingAlpha, startingBeta);
     // for(int i = 0; i<_maxDepth; i++)
     // {

@@ -267,8 +267,9 @@ Move MyDomain::calculate_best_move(char* str, struct timeval t1)
                 int msecsPassed = (1000* t2.tv_sec + t2.tv_usec / 1000) - (1000* t1.tv_sec + t1.tv_usec / 1000);
                 if(msecsPassed > g_time_to_play)
                 {
+                    int terminate = 1;
                     for (i = 1; i < numtasks; i++) {
-                        MPI_Isend(str, 1, MPI_CHAR, i, TAG_TERMINATE_COMPUTATION, MPI_COMM_WORLD, &request );
+                        MPI_Isend(&terminate, 1, MPI_INT, i, TAG_TERMINATE_COMPUTATION, MPI_COMM_WORLD, &request );
                     }
                     printf("Cutting at depth: %d \n", currentMaxDepth);
 
