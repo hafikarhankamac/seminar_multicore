@@ -41,13 +41,16 @@ Without gcc version 6.3, our code will not compile due Intel compatibility setti
 Currently, we have not altered the player's command line arguments and it is still the same with
 the base version of the code where you need to specify everything, including max-depth.
 
-You can call a depth greater than 5. To see which search algorithm you want to use you can call ./player -h
+You can call a depth greater than 5. To see which search algorithm you want to use you can call 
+```
+./player -h
+```
 to see how each algorithm is indexed.
 
 Example:
 
 ```
-mpiexec -n 28 2 ./player X -s 2 -n 5
+mpiexec -n 28 ./player X -s 2 -n 5
 ```
 
 will create a player X with depth 5, with no changing evaluation function(-n), with our search strategy "AlphaBetaSorted/Sampling"(-s 2)
