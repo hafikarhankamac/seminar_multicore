@@ -13,6 +13,8 @@
 #include <algorithm>
 #include <tuple>
 #include <iostream>
+#include <unistd.h>
+
 #include "mpi.h"
 
 #define TAG_TERMINATE_COMPUTATION 7
@@ -101,20 +103,34 @@ std::vector<Move> ABStrategySorted::sampleMoves()
 int ABStrategySorted::alphaBeta(int depth, int alpha, int beta)
 {
     counter++;
-    if(counter%1000 == 0)
+    if(counter%10 == 0)
     {
         int message_available;
-        MPI_Status status;
-        MPI_Request message_type;
-        MPI_Iprobe(0, TAG_TERMINATE_COMPUTATION, MPI_COMM_WORLD, &message_available, &status);
+        MPI_Status st;
+        MPI_Test(&request, &message_available, &st);
+        //if(st.MPI_ERROR >= 0)
+            printf("  %d               error      %d cancelled %d \n", message_available, st.MPI_ERROR, st._cancelled);
+        usleep(100000);
+
         if(message_available)
         {
-            //int rank;
-            //MPI_Comm_rank(MPI_COMM_WORLD,&rank);
-            //printf("cutting off worker %d\n", rank);
-            MPI_Irecv(tmp_char, 0, MPI_CHAR, 0, TAG_TERMINATE_COMPUTATION, MPI_COMM_WORLD, &message_type);
+            int rank;
+            MPI_Comm_rank(MPI_COMM_WORLD,&rank);
+            printf("cutting off worker %d\n", rank);
             return TERMINATED_BEST_VAL;
         }
+
+        // MPI_Wait(&request, &st);
+        // int rank;
+        // MPI_Comm_rank(MPI_COMM_WORLD,&rank);
+        // printf("cutting off worker %d\n", rank);
+        // return TERMINATED_BEST_VAL;
+
+
+        // int message_available;
+        // MPI_Status status;
+        // MPI_Request message_type;
+        // MPI_Iprobe(0, TAG_TERMINATE_COMPUTATION, MPI_COMM_WORLD,, &status);
     }
 
     if (depth == _maxDepth || !_board->isValid())
@@ -123,8 +139,6 @@ int ABStrategySorted::alphaBeta(int depth, int alpha, int beta)
     }
     int bestVal = minEvaluation();
 
-
-
     if(depth <= (_maxDepth-2))
     {
         auto moves = sampleMoves();
@@ -132,7 +146,7 @@ int ABStrategySorted::alphaBeta(int depth, int alpha, int beta)
         {
             playMove(move);
             int val = -alphaBeta(depth+1, -beta, -alpha);
-            if(val == TERMINATED_BEST_VAL)
+            if(val == TERMINATED_BEST_VAL || val == -TERMINATED_BEST_VAL)
             { //if this value returned, exit asap
                 return TERMINATED_BEST_VAL;
             }
@@ -144,13 +158,10 @@ int ABStrategySorted::alphaBeta(int depth, int alpha, int beta)
                     foundBestMove(depth, move, bestVal);
                 }
             }
-
             if(bestVal > alpha)
             {
-                //printf("moving  alpha  from %d to %d at depth %d.  Beta is %d\n", alpha, bestVal, depth, beta);
                 alpha = bestVal;
             }
-
             if(alpha >= beta)
             {
                 branches_cut_off[depth]++;
@@ -167,7 +178,7 @@ int ABStrategySorted::alphaBeta(int depth, int alpha, int beta)
         for(i = 0; list.getNext(move); i++) {
             playMove(move);
             int val = -alphaBeta(depth+1, -beta, -alpha);
-            if(val == TERMINATED_BEST_VAL)
+            if(val == TERMINATED_BEST_VAL || val == -TERMINATED_BEST_VAL)
             { //if this value returned, exit asap
                 return TERMINATED_BEST_VAL;
             }
@@ -182,10 +193,8 @@ int ABStrategySorted::alphaBeta(int depth, int alpha, int beta)
 
             if(bestVal > alpha)
             {
-                //printf("moving  alpha  from %d to %d at depth %d.  Beta is %d\n", alpha, bestVal, depth, beta);
                 alpha = bestVal;
             }
-
             if(alpha >= beta)
             {
                 branches_cut_off[depth]++;
@@ -203,6 +212,8 @@ void ABStrategySorted::searchBestMove()
     {
         branches_cut_off[i] = 0;
     }
+    counter = 0;
+    MPI_Irecv(tmp_char, 1, MPI_CHAR, 0, TAG_TERMINATE_COMPUTATION, MPI_COMM_WORLD, &request);
     eval = alphaBeta(startingDepth, startingAlpha, startingBeta);
     // for(int i = 0; i<_maxDepth; i++)
     // {

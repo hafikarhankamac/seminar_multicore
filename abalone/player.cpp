@@ -265,14 +265,12 @@ Move MyDomain::calculate_best_move(char* str, struct timeval t1)
             {
                 gettimeofday(&t2,0);
                 int msecsPassed = (1000* t2.tv_sec + t2.tv_usec / 1000) - (1000* t1.tv_sec + t1.tv_usec / 1000);
-                // printf("waiting here after %d \n", msecsPassed);
-                // usleep(10000);
                 if(msecsPassed > g_time_to_play)
                 {
                     for (i = 1; i < numtasks; i++) {
-                        MPI_Isend(str, 0, MPI_CHAR, i, TAG_TERMINATE_COMPUTATION, MPI_COMM_WORLD, &request );
+                        MPI_Isend(str, 1, MPI_CHAR, i, TAG_TERMINATE_COMPUTATION, MPI_COMM_WORLD, &request );
                     }
-                    printf("Cutting at depth: %d eval: %d \n", currentMaxDepth, best_eval);
+                    printf("Cutting at depth: %d \n", currentMaxDepth);
 
                     myBoard.takeBack();
                     return bestMove;
@@ -603,7 +601,7 @@ int worker_process()
         char board[BOARD_SIZE];
         MPI_Send(board, 0 , MPI_CHAR, 0, TAG_ASK_FOR_JOB , MPI_COMM_WORLD ) ;
         MPI_Probe (0, MPI_ANY_TAG , MPI_COMM_WORLD , &status ) ;
-        if( status.MPI_TAG == TAG_JOB_DATA )
+        if( status.MPI_TAG == TAG_JOB_DATA || status.MPI_TAG == TAG_JOB_DATA_2 )
         {
             Move m1, m2;
             if(cnt > 0)//after the first round, check that the previous sends were completed
@@ -636,20 +634,22 @@ int worker_process()
 
             //before sending the data back to master, check if the timeout has been sent - in that case the result is not relevant anymore
             //TODO update for master having sent it before the iprobe noticed it
-            if(return_vals[4] != TERMINATED_BEST_VAL)
+            if(return_vals[4] != TERMINATED_BEST_VAL && return_vals[4] != -TERMINATED_BEST_VAL)
             {
-                int message_available;
-                MPI_Status status;
-                MPI_Request message_type;
-                MPI_Iprobe(0, TAG_TERMINATE_COMPUTATION, MPI_COMM_WORLD, &message_available, &status);
-                if(message_available)
-                {
-                    //printf("cutting off worker %d just before sending message \n", rank);
-                }
-                else
-                {
-                    MPI_Isend(return_vals, 5, MPI_INT, 0, TAG_RESULT, MPI_COMM_WORLD, &data_send_1);
-                }
+                MPI_Isend(return_vals, 5, MPI_INT, 0, TAG_RESULT, MPI_COMM_WORLD, &data_send_1);
+                //
+                // int message_available;
+                // MPI_Status status;
+                // MPI_Request message_type;
+                // MPI_Iprobe(0, TAG_TERMINATE_COMPUTATION, MPI_COMM_WORLD, &message_available, &status);
+                // if(message_available)
+                // {
+                //     //printf("cutting off worker %d just before sending message \n", rank);
+                // }
+                // else
+                // {
+                //     MPI_Isend(return_vals, 5, MPI_INT, 0, TAG_RESULT, MPI_COMM_WORLD, &data_send_1);
+                // }
 
             }
             else
@@ -671,7 +671,7 @@ int worker_process()
         }
         else if( status.MPI_TAG == TAG_TERMINATE_COMPUTATION ){
             printf("process %d received tag terminate %d \n", rank, status.MPI_TAG);
-            MPI_Recv(board, 0, MPI_CHAR, 0, TAG_TERMINATE_COMPUTATION, MPI_COMM_WORLD, &status2);
+            MPI_Recv(board, 1, MPI_CHAR, 0, TAG_TERMINATE_COMPUTATION, MPI_COMM_WORLD, &status2);
             usleep(100);
         }
         else

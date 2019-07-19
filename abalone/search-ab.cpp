@@ -68,7 +68,7 @@ int ABStrategy::alphaBeta(int depth, int alpha, int beta)
             // int rank;
             // MPI_Comm_rank(MPI_COMM_WORLD,&rank);
             // printf("cutting off worker %d\n", rank);
-            MPI_Irecv(tmp_char, 0, MPI_CHAR, 0, TAG_TERMINATE_COMPUTATION, MPI_COMM_WORLD, &message_type);
+            MPI_Irecv(tmp_char, 1, MPI_CHAR, 0, TAG_TERMINATE_COMPUTATION, MPI_COMM_WORLD, &message_type);
             return TERMINATED_BEST_VAL;
         }
     }

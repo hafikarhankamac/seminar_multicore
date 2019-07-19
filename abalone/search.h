@@ -9,6 +9,7 @@
 #define SEARCH_H
 
 #include "move.h"
+#include "mpi.h"
 
 class Board;
 class Evaluator;
@@ -88,6 +89,7 @@ class SearchStrategy
 
     void stopSearch() { _stopSearch = true; }
     int eval;
+    MPI_Request request;
 
     /**
      * Overwrite this to implement your search strategy
