@@ -15,11 +15,26 @@ early submission version.
 Currently to compile the code in superMUC, one has to have the gcc version 6.3.0
 You can do this by unloading the current gcc compiler and calling:
 
-`module load gcc/6`
+```
+module load gcc/6
+```
+We are have implemented a MPI version so one also has to load the intel mpi with version 19. You can achieve this by calling this sequence of commands:
 
-You can invoke "make" in the directory you have put the file, the Makefile should be compatible with superMUC.
+```
+module unload intel/17.0
+module load intel/19.0
+module unload mpi.ibm
+module load mpi.intel
+```
+
+You can invoke 
+```
+make
+``` 
+in the directory you have put the file, the Makefile should be compatible with superMUC.
 
 Without gcc version 6.3, our code will not compile due Intel compatibility settings.
+
 
 ## Running the player
 
@@ -31,6 +46,8 @@ to see how each algorithm is indexed.
 
 Example:
 
-`./player X -s 2 -n 5`
+```
+mpiexec -n 28 2 ./player X -s 2 -n 5
+```
 
 will create a player X with depth 5, with no changing evaluation function(-n), with our search strategy "AlphaBetaSorted/Sampling"(-s 2)
