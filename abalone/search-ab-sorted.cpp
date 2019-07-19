@@ -101,7 +101,7 @@ std::vector<Move> ABStrategySorted::sampleMoves()
 int ABStrategySorted::alphaBeta(int depth, int alpha, int beta)
 {
     counter++;
-    if(counter%100 == 0)
+    if(counter%1000 == 0)
     {
         int message_available;
         MPI_Status status;
@@ -109,9 +109,9 @@ int ABStrategySorted::alphaBeta(int depth, int alpha, int beta)
         MPI_Iprobe(0, TAG_TERMINATE_COMPUTATION, MPI_COMM_WORLD, &message_available, &status);
         if(message_available)
         {
-            int rank;
-            MPI_Comm_rank(MPI_COMM_WORLD,&rank);
-            printf("cutting off worker %d\n", rank);
+            //int rank;
+            //MPI_Comm_rank(MPI_COMM_WORLD,&rank);
+            //printf("cutting off worker %d\n", rank);
             MPI_Irecv(tmp_char, 0, MPI_CHAR, 0, TAG_TERMINATE_COMPUTATION, MPI_COMM_WORLD, &message_type);
             return TERMINATED_BEST_VAL;
         }
@@ -132,6 +132,10 @@ int ABStrategySorted::alphaBeta(int depth, int alpha, int beta)
         {
             playMove(move);
             int val = -alphaBeta(depth+1, -beta, -alpha);
+            if(val == TERMINATED_BEST_VAL)
+            { //if this value returned, exit asap
+                return TERMINATED_BEST_VAL;
+            }
             takeBack();
             if (val > bestVal) {
                 bestVal = val;
@@ -163,6 +167,10 @@ int ABStrategySorted::alphaBeta(int depth, int alpha, int beta)
         for(i = 0; list.getNext(move); i++) {
             playMove(move);
             int val = -alphaBeta(depth+1, -beta, -alpha);
+            if(val == TERMINATED_BEST_VAL)
+            { //if this value returned, exit asap
+                return TERMINATED_BEST_VAL;
+            }
             takeBack();
             if (val > bestVal) {
                 bestVal = val;

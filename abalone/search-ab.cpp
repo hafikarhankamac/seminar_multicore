@@ -12,6 +12,9 @@
 #include <tuple>
 #include "mpi.h"
 
+#define TAG_TERMINATE_COMPUTATION 7
+
+#define TERMINATED_BEST_VAL 987654321
 
 /**
  * To create your own search strategy:
@@ -38,6 +41,9 @@ class ABStrategy: public SearchStrategy
     SearchStrategy* clone() { return new ABStrategy(); }
 
  private:
+     int counter = 0;
+     char tmp_char[2];
+
      int nodes_evaluated;
      int branches_cut_off[20];
     /**
@@ -49,7 +55,25 @@ class ABStrategy: public SearchStrategy
 
 int ABStrategy::alphaBeta(int depth, int alpha, int beta)
 {
-    bool max = (depth + 1) % 2;//0=min, 1=max
+
+    counter++;
+    if(counter%100 == 0)
+    {
+        int message_available;
+        MPI_Status status;
+        MPI_Request message_type;
+        MPI_Iprobe(0, TAG_TERMINATE_COMPUTATION, MPI_COMM_WORLD, &message_available, &status);
+        if(message_available)
+        {
+            // int rank;
+            // MPI_Comm_rank(MPI_COMM_WORLD,&rank);
+            // printf("cutting off worker %d\n", rank);
+            MPI_Irecv(tmp_char, 0, MPI_CHAR, 0, TAG_TERMINATE_COMPUTATION, MPI_COMM_WORLD, &message_type);
+            return TERMINATED_BEST_VAL;
+        }
+    }
+
+
     if (depth == _maxDepth || !_board->isValid())
     {
         return -(evaluate()-depth);
@@ -63,6 +87,10 @@ int ABStrategy::alphaBeta(int depth, int alpha, int beta)
     for(i = 0; list.getNext(move); i++) {
         playMove(move);
         int val = -alphaBeta(depth+1, -beta, -alpha);
+        if(val == TERMINATED_BEST_VAL)
+        { //if this value returned, exit asap
+            return TERMINATED_BEST_VAL;
+        }
         takeBack();
         if (val > bestVal) {
             bestVal = val;

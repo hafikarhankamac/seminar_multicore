@@ -9,7 +9,7 @@
 static int defaultRingValue[] = { 45, 35, 25, 10, 0 };
 static int defaultRingDiff[]  = {  0, 10, 10,  8, 5 };
 static int defaultStoneValue[]= { 0,-800,-1800,-3000,-4400,-6000 };
-static int defaultMoveValue[Move::typeCount] = { 40,30,30, 15,14,13, 
+static int defaultMoveValue[Move::typeCount] = { 40,30,30, 15,14,13,
 						 5,5,5, 2,2,2, 1 };
 static int defaultInARowValue[MoveCounter::inARowCount]= { 2, 5, 4, 3 };
 
@@ -34,14 +34,14 @@ void EvalScheme::setDefaults()
 
   for(int i=0;i<MoveCounter::inARowCount;i++)
     _inARowValue[i] = defaultInARowValue[i];
-  
+
   for(int i=0;i<5;i++)
     _ringValue[i] = defaultRingValue[i];
 
   for(int i=0;i<5;i++)
     _ringDiff[i] = defaultRingDiff[i];
 }
-  
+
 
 void EvalScheme::read(char* file)
 {
@@ -153,7 +153,7 @@ int Evaluator::calcEvaluation(Board* b)
 	// Use default values if not set
 	setEvalScheme();
     }
-    
+
   MoveCounter cColor, cOpponent;
 
   int f,i,j;
@@ -177,12 +177,12 @@ int Evaluator::calcEvaluation(Board* b)
       j=field[f=Board::order[i]];
       if (j == free) continue;
       if (j == color) {
-	b->countFrom( f, j, cColor );
-	fieldValueSum -= fieldValue[i];
+		  b->countFrom( f, j, cColor );
+		  fieldValueSum -= fieldValue[i];
       }
       else {
-	b->countFrom( f, j, cOpponent );
-	fieldValueSum += fieldValue[i];
+		  b->countFrom( f, j, cOpponent );
+		  fieldValueSum += fieldValue[i];
       }
     }
 
