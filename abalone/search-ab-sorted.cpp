@@ -67,11 +67,13 @@ class ABStrategySorted: public SearchStrategy
 
 std::vector<Move> ABStrategySorted::sampleMoves()
 {
+    using avtype = std::tuple<Move, int>;
+    const int valueOf = 1;
+    const int moveOf = 0;
     std::vector<Move> sortedMoves;
     MoveList list;
     Move move;
-    using Value = int;
-    std::vector<std::tuple<Move, Value>> actionValues;
+    std::vector<avtype> actionValues;
     generateMoves(list);
     while (list.getNext(move))
     {
@@ -79,19 +81,19 @@ std::vector<Move> ABStrategySorted::sampleMoves()
         actionValues.push_back(std::make_tuple(move, evaluate()));
         takeBack();
     }
-    std::stable_sort(actionValues.begin(), actionValues.end(), [](auto a, auto b) {
-        return std::get<Value>(a) > std::get<Value>(b);
+    std::stable_sort(actionValues.begin(), actionValues.end(), [](avtype a, avtype b) {
+        return std::get<valueOf>(a) > std::get<valueOf>(b);
     });
     int i;
     for (i = 0; i < std::min(numSamples, (int)actionValues.size()); i++)
     {
-        sortedMoves.push_back(std::get<Move>(actionValues[i]));
+        sortedMoves.push_back(std::get<moveOf>(actionValues[i]));
     }
-    auto firstVal = std::get<Value>(actionValues[0]);
+    auto firstVal = std::get<valueOf>(actionValues[0]);
     while (true)
     {
         if (i >= actionValues.size()) break;
-        Move m; Value val; std::tie(m, val) = actionValues[i];
+        Move m; int val; std::tie(m, val) = actionValues[i];
         if ((firstVal - val) > threshold) break;
         sortedMoves.push_back(m);
         i++;
