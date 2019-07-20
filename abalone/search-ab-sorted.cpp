@@ -47,7 +47,6 @@ class ABStrategySorted: public SearchStrategy
 
  private:
      int rank;
-     int receive_array[8];
      int counter = 0;
 
      int nodes_evaluated;
@@ -109,10 +108,20 @@ int ABStrategySorted::alphaBeta(int depth, int alpha, int beta)
     {
         MPI_Status status;
         int flag;
-        MPI_Test(&request, &flag, &status);
+        MPI_Test(unexpected_receive_request_ptr, &flag, &status);
         if(flag)
         {
-            //printf("!!!!!!!!!!!!!!!!!!!cutting off worker %d\n", rank);
+            if(unexpected_receive_array[1]==1)
+            {
+                return TERMINATED_BEST_VAL;
+            }
+            else if(unexpected_receive_array[1]==2)
+            {
+                printf("cutting off worker during ab %d\n", rank);
+
+                return TERMINATED_BEST_VAL;
+            }
+            printf("!!!!!!!!!!!!!!!!!!!cutting off worker how why???? %d\n", rank);
             return TERMINATED_BEST_VAL;
         }
     }
@@ -196,15 +205,8 @@ void ABStrategySorted::searchBestMove()
         branches_cut_off[i] = 0;
     }
     counter = 0;
-    receive_array[0] = 0;
     MPI_Comm_rank(MPI_COMM_WORLD,&rank);
-    if(callReceive == 1)
-    {
-        MPI_Irecv(&receive_array[0], 1, MPI_INT, 0, TAG_TERMINATE_COMPUTATION, MPI_COMM_WORLD, &request);
-    }
     eval = alphaBeta(startingDepth, startingAlpha, startingBeta);
-
-
     // for(int i = 0; i<_maxDepth; i++)
     // {
     //     printf("     cut off %d branches at depth %d \n",branches_cut_off[i], i);

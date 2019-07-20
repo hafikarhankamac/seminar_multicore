@@ -891,10 +891,16 @@ void Board::setStartingDepth(int d)
     _ss->setStartingDepth(d);
 }
 
-void Board::setCallReceive(int d)
+void Board::set_unexpected_receive_array_ptr(int* int_ptr)
 {
     if (!_ss) return;
-    _ss->setCallReceive(d);
+    _ss->set_unexpected_receive_array_ptr(int_ptr);
+}
+
+void Board::set_unexpected_receive_request_ptr(MPI_Request * req_ptr)
+{
+    if (!_ss) return;
+    _ss->set_unexpected_receive_request_ptr(req_ptr);
 }
 
 void Board::setStartingAlpha(int d)
