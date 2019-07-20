@@ -269,7 +269,7 @@ Move MyDomain::calculate_best_move(char* str, struct timeval t1)
                 {
                     int terminate = 1;
                     for (i = 1; i < numtasks; i++) {
-                        MPI_Isend(&terminate, 1, MPI_INT, i, TAG_TERMINATE_COMPUTATION, MPI_COMM_WORLD, &request );
+                        MPI_Irsend(&terminate, 1, MPI_INT, i, TAG_TERMINATE_COMPUTATION, MPI_COMM_WORLD, &request );
                     }
                     printf("Cutting at depth: %d \n", currentMaxDepth);
 
@@ -597,6 +597,7 @@ int worker_process()
     MPI_Status status, status2;
     MPI_Request data_send_1, data_send_2, data_recv_1, data_recv_2;
     int cnt = 0;
+    int last_move_number = -1;
     while(true)
     {
         char board[BOARD_SIZE];
@@ -618,6 +619,15 @@ int worker_process()
             MPI_Wait(&data_recv_1, &status2);
 
             myBoard.setState(board+4);
+            if(myBoard.getMoveNo() == last_move_number)
+            {
+                myBoard.setCallReceive(0);
+            }
+            else
+            {
+                last_move_number = myBoard.getMoveNo();
+                myBoard.setCallReceive(1);
+            }
             myBoard.playMove(m1);
             myBoard.playMove(m2);
             myBoard.setStartingAlpha(recv_move_data[7]);
@@ -638,24 +648,10 @@ int worker_process()
             if(return_vals[4] != TERMINATED_BEST_VAL && return_vals[4] != -TERMINATED_BEST_VAL)
             {
                 MPI_Isend(return_vals, 5, MPI_INT, 0, TAG_RESULT, MPI_COMM_WORLD, &data_send_1);
-                //
-                // int message_available;
-                // MPI_Status status;
-                // MPI_Request message_type;
-                // MPI_Iprobe(0, TAG_TERMINATE_COMPUTATION, MPI_COMM_WORLD, &message_available, &status);
-                // if(message_available)
-                // {
-                //     //printf("cutting off worker %d just before sending message \n", rank);
-                // }
-                // else
-                // {
-                //     MPI_Isend(return_vals, 5, MPI_INT, 0, TAG_RESULT, MPI_COMM_WORLD, &data_send_1);
-                // }
-
             }
             else
             {
-                printf("rank %d being terminated\n", rank);
+                //printf("rank %d being terminated\n", rank);
             }
 
 

@@ -74,6 +74,8 @@ class SearchStrategy
     void setStartingDepth(int d) { startingDepth = d; }
     void setStartingAlpha(int d) { startingAlpha = d; }
     void setStartingBeta(int d) { startingBeta = d; }
+    void setCallReceive(int d) { callReceive = d; }
+
 
 
     void setEvaluator(Evaluator* e) { _ev = e; }
@@ -128,7 +130,7 @@ class SearchStrategy
     int startingDepth = 0;
     int startingAlpha = -99999;
     int startingBeta = 99999;
-
+    int callReceive = 1;
  private:
 
     const char* _name;
