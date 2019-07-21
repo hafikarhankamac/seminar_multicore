@@ -111,14 +111,8 @@ int ABStrategySorted::alphaBeta(int depth, int alpha, int beta)
         MPI_Test(unexpected_receive_request_ptr, &flag, &status);
         if(flag)
         {
-            if(unexpected_receive_array[1]==1)
+            if(unexpected_receive_array[1]==1 || unexpected_receive_array[1]==2)
             {
-                return TERMINATED_BEST_VAL;
-            }
-            else if(unexpected_receive_array[1]==2)
-            {
-                printf("cutting off worker during ab %d\n", rank);
-
                 return TERMINATED_BEST_VAL;
             }
             printf("!!!!!!!!!!!!!!!!!!!cutting off worker how why???? %d\n", rank);

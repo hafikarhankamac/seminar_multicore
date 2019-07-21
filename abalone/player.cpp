@@ -22,13 +22,14 @@
 #include "mpi.h"
 
 #define TAG_RESULT 0
-#define TAG_RESULT_2 1
 #define TAG_ASK_FOR_JOB 2
 #define TAG_JOB_DATA 3
 #define TAG_JOB_DATA_2 4
 #define TAG_STOP 5
 #define TAG_DO_NOTHING 6
 #define TAG_TERMINATE_COMPUTATION 7
+#define TAG_RECEIVED_TIMEOUT_TERMINATION 8
+#define TAG_RECEIVED_CUTOFF_TERMINATION 9
 
 #define TERMINATED_BEST_VAL 987654321
 #define MOVE_ARRAY_SIZE 150
@@ -80,7 +81,7 @@ MoveList g_first_moves_list, g_second_moves_list;
 Move g_first_move_array[MOVE_ARRAY_SIZE];
 
 //each process has its index in this array - on that index, the number of actually processed first move is stored
-int g_process_is_processing_first_move[MAX_NO_PROCESSES];
+int g_array_worker_current_task[MAX_NO_PROCESSES];
 
 /**
  * MyDomain
@@ -132,9 +133,8 @@ Move MyDomain::calculate_best_move(char* str, struct timeval t1)
     bool next_depth = true;
     while(next_depth)
     {
-
         ////////temporary
-        if(currentMaxDepth > 6)
+        if(currentMaxDepth > 3)
         {
             break;
         }
@@ -156,8 +156,13 @@ Move MyDomain::calculate_best_move(char* str, struct timeval t1)
 
         for(int process = 1; process < numtasks; process++)
         {
-            g_process_is_processing_first_move[process] = -1;
+            if(g_array_worker_current_task[process] != -1)
+            {
+                printf("!!!!!!!!!!!!!!!process %d not terminated \n", process);
+                g_array_worker_current_task[process] = -1;
+            }
         }
+
         for(i=0; i< g_first_moves_total; i++ )
         {
             best_eval_array[i]=MAX_EVAL_VALUE;
@@ -166,19 +171,20 @@ Move MyDomain::calculate_best_move(char* str, struct timeval t1)
             g_number_child_moves_processed[i]=0;
         }
 
-
+        int move_number = myBoard.moveNo();
         int tasks_created = 0, tasks_completed = 0;
         bool is_next_move = true;
         while(is_next_move || tasks_created > tasks_completed) //loop until there is no new task to create and all pending tasks are calculated
         {
             int message_available;
-            //MPI_Probe(MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
             MPI_Iprobe(MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &message_available, &status);
             if(message_available)
             {
+                //printf("process 2 working on %d \n", g_array_worker_current_task[2]);
                 int slave_rank = status.MPI_SOURCE;
                 if (status.MPI_TAG == TAG_ASK_FOR_JOB)
                 {
+
                     if(is_next_move)
                     {
                         //generate a move into global variables g_first_move g_second_move
@@ -193,10 +199,18 @@ Move MyDomain::calculate_best_move(char* str, struct timeval t1)
                             }
                             else
                             {
-                                g_process_is_processing_first_move[slave_rank] = g_first_move_index;
-                                int send_move_data[10];//0=first move index; 1-3 = first move, 4-6 = second move, 7=alpha, 8=beta, 9=maxDepth
-                                MPI_Irecv(tmp_buf, 0, MPI_CHAR, slave_rank, TAG_ASK_FOR_JOB, MPI_COMM_WORLD, &message_type);
+                                if(slave_rank == 2)
+                                    printf("    sending       working-on array: %d   task# %d\n", g_first_move_index, tasks_created);
+
+                                int send_move_data[14];//0=first move index; 1-3 = first move, 4-6 = second move, 7=alpha, 8=beta, 9=maxDepth, 10=debug val, 11=moveNo
+                                MPI_Recv(tmp_buf, 0, MPI_CHAR, slave_rank, TAG_ASK_FOR_JOB, MPI_COMM_WORLD, &status2);
                                 MPI_Isend(str, BOARD_SIZE, MPI_CHAR, slave_rank, TAG_JOB_DATA, MPI_COMM_WORLD, &data_send_1);
+                                if(g_array_worker_current_task[slave_rank] != -1)
+                                    printf("\n\nstarting worker that is still working %d - working on %d \n", slave_rank, g_array_worker_current_task[slave_rank]);
+
+                                //if( g_array_worker_current_task[slave_rank] != 1 && g_first_move_index  != -1)
+                                //    printf("g_array_worker_current_task[%d] old value %d, new value %d \n", slave_rank, g_array_worker_current_task[slave_rank], g_first_move_index );
+                                g_array_worker_current_task[slave_rank] = g_first_move_index;
                                 send_move_data[0] = g_first_move_index;
                                 send_move_data[1] = (int)g_first_move.field;
                                 send_move_data[2] = (int)g_first_move.direction;
@@ -207,7 +221,10 @@ Move MyDomain::calculate_best_move(char* str, struct timeval t1)
                                 send_move_data[7] = best_eval;//current alpha
                                 send_move_data[8] = best_eval_array[g_first_move_index];//cuttent beta
                                 send_move_data[9] = currentMaxDepth;
-                                MPI_Isend(send_move_data, 10, MPI_INT, slave_rank, TAG_JOB_DATA_2, MPI_COMM_WORLD, &data_send_2);
+                                send_move_data[10] = tasks_created;
+                                send_move_data[11] = move_number;
+                                MPI_Isend(send_move_data, 14, MPI_INT, slave_rank, TAG_JOB_DATA_2, MPI_COMM_WORLD, &data_send_2);
+                                MPI_Wait(&data_send_2, &status2);
                                 if (verbose>2)
                                     printf("sending data no.%d to proc %d \n", tasks_created, slave_rank);
                                 tasks_created++;
@@ -226,14 +243,18 @@ Move MyDomain::calculate_best_move(char* str, struct timeval t1)
                 }
                 else if (status.MPI_TAG == TAG_RESULT)
                 {
-                    g_process_is_processing_first_move[slave_rank] = -1;
                     if (verbose>2)
                         printf("receiving data no.%d from proc %d \n", tasks_completed, slave_rank);
 
-                    int return_vals[5];//0=first move index; 1-3 = second move, 4 = eval;
-                    MPI_Irecv(return_vals, 5, MPI_INT, slave_rank, TAG_RESULT, MPI_COMM_WORLD, &data_recv_1);
+                    //printf("g_array_worker_current_task[%d] old value %d, new value %d \n", slave_rank, g_array_worker_current_task[slave_rank], -1 );
+                    int return_vals[8];//0=first move index; 1-3 = second move, 4 = eval;
+                    MPI_Irecv(return_vals, 8, MPI_INT, slave_rank, TAG_RESULT, MPI_COMM_WORLD, &data_recv_1);
                     MPI_Wait(&data_recv_1, &status2);
 
+                    if(slave_rank == 2)
+                        printf("    receiving     working-on array: %d   task# %d\n", g_array_worker_current_task[2], return_vals[5]);
+
+                    g_array_worker_current_task[slave_rank] = -1;
                     int move_index = return_vals[0];
                     g_number_child_moves_processed[move_index]++;
 
@@ -249,12 +270,13 @@ Move MyDomain::calculate_best_move(char* str, struct timeval t1)
                     {
                         for(int process = 1; process < numtasks; process++)
                         {
-                            if(g_process_is_processing_first_move[process] == move_index)
+                            if(g_array_worker_current_task[process] == move_index)
                             {
                                 if(process != slave_rank)
                                 {
-                                    int push_data_array[8] = {0,2,0,0,0,0,0,0};
-                                    MPI_Isend(&push_data_array, 8, MPI_INT, process, TAG_TERMINATE_COMPUTATION, MPI_COMM_WORLD, &request );
+                                    int push_data_array[8] = {move_index,2,0,0,0,0,0,0};
+                                    //TODO revert back? MPI_Isend(&push_data_array, 8, MPI_INT, process, TAG_TERMINATE_COMPUTATION, MPI_COMM_WORLD, &request );
+                                    MPI_Send(&push_data_array, 8, MPI_INT, process, TAG_TERMINATE_COMPUTATION, MPI_COMM_WORLD);
                                     //printf("terminating computation in running process %d \n", process);
                                 }
                             }
@@ -281,12 +303,13 @@ Move MyDomain::calculate_best_move(char* str, struct timeval t1)
                                 {
                                     for(int process = 1; process < numtasks; process++)
                                     {
-                                        if(g_process_is_processing_first_move[process] == move_index)
+                                        if(g_array_worker_current_task[process] == move_index)
                                         {
                                             if(process != slave_rank)
                                             {
-                                                int push_data_array[8] = {0,2,0,0,0,0,0,0};
-                                                MPI_Isend(&push_data_array, 8, MPI_INT, process, TAG_TERMINATE_COMPUTATION, MPI_COMM_WORLD, &request );
+                                                int push_data_array[8] = {move_index,2,0,0,0,0,0,0};
+                                                //MPI_Isend(&push_data_array, 8, MPI_INT, process, TAG_TERMINATE_COMPUTATION, MPI_COMM_WORLD, &request );
+                                                MPI_Send(&push_data_array, 8, MPI_INT, process, TAG_TERMINATE_COMPUTATION, MPI_COMM_WORLD);
                                                 //printf("terminating computation in running process %d \n", process);
                                             }
                                         }
@@ -297,6 +320,65 @@ Move MyDomain::calculate_best_move(char* str, struct timeval t1)
                     }
                     tasks_completed++;
                 }
+                else if(status.MPI_TAG == TAG_RECEIVED_CUTOFF_TERMINATION)
+                {
+                    int termination_receive_buffer[8];
+                    //printf("g_array_worker_current_task[%d] old value %d, new value %d \n", slave_rank, g_array_worker_current_task[slave_rank], -1 );
+
+                    MPI_Irecv(termination_receive_buffer, 8, MPI_INT, slave_rank, TAG_RECEIVED_CUTOFF_TERMINATION, MPI_COMM_WORLD, &data_recv_1);
+                    MPI_Wait(&data_recv_1, &status);
+                    if(slave_rank == 2)
+                        printf("    xxxreceiving  working-on array: %d   task# %d\n", g_array_worker_current_task[2], termination_receive_buffer[2]);
+
+                    g_array_worker_current_task[slave_rank] = -1;
+                    int move_index = termination_receive_buffer[0];
+                    g_number_child_moves_processed[move_index]++;
+
+                    //if all sub-moves of this move are computed, check if best move can be updated
+                    if(g_number_child_moves_total[move_index] == g_number_child_moves_processed[move_index])
+                    {
+                        if (verbose>2)
+                            printf(" best eval %d from %d - move %d \n", best_eval_array[move_index], slave_rank, move_index);
+
+                        if(best_eval_array[move_index] > best_eval )
+                        {
+                            best_eval = best_eval_array[move_index];
+                            bestMoveInCurrentDepth = g_first_move_array[move_index];
+                            percieved_second_move = percieved_second_move_array[move_index];
+                            if (verbose>0)
+                                printf("     found new GLOBAL best eval %d from %d - move %d \n", best_eval_array[move_index], slave_rank, move_index);
+
+                            for(int fm = 0; fm <  g_first_moves_total; fm++)
+                            {
+                                if(best_eval >= best_eval_array[fm])//cut off running process based on newly received data
+                                {
+                                    for(int process = 1; process < numtasks; process++)
+                                    {
+                                        if(g_array_worker_current_task[process] == move_index)
+                                        {
+                                            if(process != slave_rank)
+                                            {
+                                                int push_data_array[8] = {move_index,2,0,0,0,0,0,0};
+                                                //MPI_Isend(&push_data_array, 8, MPI_INT, process, TAG_TERMINATE_COMPUTATION, MPI_COMM_WORLD, &request );
+                                                //THISMPI_Send(&push_data_array, 8, MPI_INT, process, TAG_TERMINATE_COMPUTATION, MPI_COMM_WORLD);
+                                                //printf("terminating computation in running process %d \n", process);
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    tasks_completed++;
+
+                }
+                else if(status.MPI_TAG == TAG_RECEIVED_TIMEOUT_TERMINATION)
+                {
+                    int termination_receive_buffer[8];
+                    printf("g_array_worker_current_task[%d] old value %d, new value %d \n", slave_rank, g_array_worker_current_task[slave_rank], -1 );
+                    g_array_worker_current_task[slave_rank] = -1;
+                    MPI_Irecv(termination_receive_buffer, 0, MPI_INT, slave_rank, TAG_RECEIVED_TIMEOUT_TERMINATION, MPI_COMM_WORLD, &message_type);
+                }
                 else
                 {
                     MPI_Irecv(tmp_buf, 0, MPI_CHAR, slave_rank, MPI_ANY_TAG, MPI_COMM_WORLD, &message_type);
@@ -304,7 +386,7 @@ Move MyDomain::calculate_best_move(char* str, struct timeval t1)
                     usleep(100000);
                 }
             }
-            else
+            else //no message - check time
             {
                 gettimeofday(&t2,0);
                 int msecsPassed = (1000* t2.tv_sec + t2.tv_usec / 1000) - (1000* t1.tv_sec + t1.tv_usec / 1000);
@@ -314,7 +396,7 @@ Move MyDomain::calculate_best_move(char* str, struct timeval t1)
                     for (i = 1; i < numtasks; i++) {
                         MPI_Isend(&push_data_array, 8, MPI_INT, i, TAG_TERMINATE_COMPUTATION, MPI_COMM_WORLD, &request );
                     }
-                    printf("Time's up before depth %d was computer. Sending terminate command to working processes\n", currentMaxDepth);
+                    printf("Time's up before depth %d was computed. Sending terminate command to working processes\n", currentMaxDepth);
 
                     myBoard.takeBack();
                     return bestMove;
@@ -529,6 +611,137 @@ void MyDomain::newConnection(Connection* c)
  * Main program
  */
 
+ ////////////////////////////////MPI
+int worker_process()
+{
+    MPI_Status status, status2;
+    MPI_Request data_send_1, data_send_2, data_recv_1, data_recv_2, unexpected_receive_request;
+    int cnt = 0;
+    int last_move_number = -1;
+    while(true)
+    {
+        int unexpected_receive_array[8] = {0,0,0,0,0,0,0,0};
+
+        char board[BOARD_SIZE];
+        MPI_Send(board, 0 , MPI_CHAR, 0, TAG_ASK_FOR_JOB , MPI_COMM_WORLD ) ;
+        MPI_Probe (0, MPI_ANY_TAG , MPI_COMM_WORLD , &status ) ;
+        if( status.MPI_TAG == TAG_JOB_DATA || status.MPI_TAG == TAG_JOB_DATA_2 )
+        {
+
+            Move m1, m2;
+            int recv_move_data[14];//0=first move index; 1-3 = first move, 4-6 = second move, 7=alpha, 8=beta, 9=maxDepth
+            MPI_Irecv(board, BOARD_SIZE, MPI_CHAR, 0, TAG_JOB_DATA, MPI_COMM_WORLD, &data_recv_1);
+            MPI_Irecv(recv_move_data, 14, MPI_INT, 0, TAG_JOB_DATA_2, MPI_COMM_WORLD, &data_recv_2);
+            MPI_Wait(&data_recv_2, &status);
+            m1 = Move((short)recv_move_data[1], (unsigned char)recv_move_data[2], (Move::MoveType)recv_move_data[3]);
+            m2 = Move((short)recv_move_data[4], (unsigned char)recv_move_data[5], (Move::MoveType)recv_move_data[6]);
+
+            MPI_Irecv(unexpected_receive_array, 8, MPI_INT, 0, TAG_TERMINATE_COMPUTATION, MPI_COMM_WORLD, &unexpected_receive_request);
+            MPI_Wait(&data_recv_1, &status2);
+
+            if(rank == 2)
+                printf("          process 2 computing %d; task %d\n", recv_move_data[0],  recv_move_data[10]);
+
+            myBoard.setState(board+4);
+            myBoard.playMove(m1);
+            myBoard.playMove(m2);
+            myBoard.setStartingAlpha(recv_move_data[7]);
+            myBoard.setStartingBeta(recv_move_data[8]);
+            myBoard.setDepth(recv_move_data[9]);
+            myBoard.setStartingDepth(2);
+            myBoard.set_unexpected_receive_array_ptr(unexpected_receive_array);
+            myBoard.set_unexpected_receive_request_ptr(&unexpected_receive_request);
+            myBoard.bestMove();
+
+            int return_vals[8];//0=first move index; 1-3=second move, 4=eval;
+            return_vals[0] = recv_move_data[0];
+            return_vals[1] = recv_move_data[4];
+            return_vals[2] = recv_move_data[5];
+            return_vals[3] = recv_move_data[6];
+            return_vals[4] = myBoard.getBestEval();
+            return_vals[5] = recv_move_data[10];
+
+            if(return_vals[4] == TERMINATED_BEST_VAL || return_vals[4] == -TERMINATED_BEST_VAL)
+            {
+                return_vals[4] = MAX_EVAL_VALUE;
+            }
+            MPI_Send(return_vals, 8, MPI_INT, 0, TAG_RESULT, MPI_COMM_WORLD);
+            int flag;
+            MPI_Test(&unexpected_receive_request, &flag, &status);
+            if(!flag)
+            {
+                MPI_Cancel(&unexpected_receive_request);
+                MPI_Request_free(&unexpected_receive_request);
+            }
+            //before sending the data back to master, check if the timeout has been sent - in that case the result is not relevant anymore
+            // if(return_vals[4] != TERMINATED_BEST_VAL && return_vals[4] != -TERMINATED_BEST_VAL)
+            // {
+            //     MPI_Send(return_vals, 8, MPI_INT, 0, TAG_RESULT, MPI_COMM_WORLD);
+            //     //check if message really not received and cancel
+            //     int flag;
+            //     MPI_Test(&unexpected_receive_request, &flag, &status);
+            //     if(!flag)
+            //     {
+            //         MPI_Cancel(&unexpected_receive_request);
+            //         MPI_Request_free(&unexpected_receive_request);
+            //     }
+            // }
+            // else
+            // {
+            //     if(unexpected_receive_array[1] == 1)//timeout termination
+            //     {
+            //         MPI_Send(unexpected_receive_array, 0, MPI_INT, 0, TAG_RECEIVED_TIMEOUT_TERMINATION, MPI_COMM_WORLD);
+            //     }
+            //     else if(unexpected_receive_array[1] == 2 ) //alphabeta termination
+            //     {
+            //         if(unexpected_receive_array[0] != recv_move_data[0])
+            //         {
+            //             if(rank == 2)
+            //                 printf("!!!!!!!!!!!!!!!!!!!rank: %d  task %d  unexpected_receive_array[0] %d  recv_move_data[0] %d \n", rank, recv_move_data[10], unexpected_receive_array[0], recv_move_data[0] );
+            //             unexpected_receive_array[0] = recv_move_data[0];
+            //         }
+            //         unexpected_receive_array[2] = recv_move_data[10];
+            //         MPI_Send(unexpected_receive_array, 8, MPI_INT, 0, TAG_RECEIVED_CUTOFF_TERMINATION, MPI_COMM_WORLD);
+            //         //printf("Process %d was terminated because its branch was cut off\n", rank);
+            //     }
+            //
+            //  }
+             if(rank == 2)
+                 printf("          process 2 finishing %d; task %d\n", recv_move_data[0],  recv_move_data[10]);
+
+             cnt ++;
+         }
+         else if( status.MPI_TAG == TAG_DO_NOTHING){
+             //wait until other workers finish the tasks for this ound but still ask for next job as it comes in the next round
+             MPI_Recv(board, 0, MPI_CHAR, 0, TAG_DO_NOTHING, MPI_COMM_WORLD, &status2) ;
+             usleep(100);
+         }
+         else if( status.MPI_TAG == TAG_STOP ){
+             MPI_Recv(board, 0, MPI_CHAR, 0, TAG_STOP, MPI_COMM_WORLD, &status2);
+             return 0;
+         }
+         else if( status.MPI_TAG == TAG_TERMINATE_COMPUTATION ){
+             printf("process %d received tag terminate\n", rank);
+             MPI_Recv(unexpected_receive_array, 8, MPI_INT, 0, TAG_TERMINATE_COMPUTATION, MPI_COMM_WORLD, &status2);
+             if(unexpected_receive_array[1] == 1)//timeout termination
+             {
+                 MPI_Send(unexpected_receive_array, 0, MPI_INT, 0, TAG_RECEIVED_TIMEOUT_TERMINATION, MPI_COMM_WORLD);
+             }
+             else if(unexpected_receive_array[1] == 2 ) //alphabeta termination
+             {
+                 MPI_Send(unexpected_receive_array, 8, MPI_INT, 0, TAG_RECEIVED_CUTOFF_TERMINATION, MPI_COMM_WORLD);
+             }
+             usleep(100);
+         }
+         else
+         {
+             printf("process %d received tag %d \n", rank, status.MPI_TAG);
+             usleep(100000);
+         }
+     }
+ }
+ ////////////////////////////////
+
 void printHelp(char* prg, bool printHeader)
 {
     if (printHeader)
@@ -634,95 +847,6 @@ void parseArgs(int argc, char* argv[])
     }
 }
 
-////////////////////////////////MPI
-int worker_process()
-{
-    MPI_Status status, status2;
-    MPI_Request data_send_1, data_send_2, data_recv_1, data_recv_2, unexpected_receive_request;
-    int cnt = 0;
-    int last_move_number = -1;
-    while(true)
-    {
-        int unexpected_receive_array[8] = {0,0,0,0,0,0,0,0};
-
-        char board[BOARD_SIZE];
-        MPI_Send(board, 0 , MPI_CHAR, 0, TAG_ASK_FOR_JOB , MPI_COMM_WORLD ) ;
-        MPI_Probe (0, MPI_ANY_TAG , MPI_COMM_WORLD , &status ) ;
-        if( status.MPI_TAG == TAG_JOB_DATA || status.MPI_TAG == TAG_JOB_DATA_2 )
-        {
-
-            Move m1, m2;
-            if(cnt > 0)//after the first round, check that the previous sends were completed
-            {
-                MPI_Wait(&data_send_1, &status2);
-            }
-            int recv_move_data[10];//0=first move index; 1-3 = first move, 4-6 = second move, 7=alpha, 8=beta, 9=maxDepth
-            MPI_Irecv(board, BOARD_SIZE, MPI_CHAR, 0, TAG_JOB_DATA, MPI_COMM_WORLD, &data_recv_1);
-            MPI_Irecv(recv_move_data, 10, MPI_INT, 0, TAG_JOB_DATA_2, MPI_COMM_WORLD, &data_recv_2);
-            MPI_Wait(&data_recv_2, &status2);
-            m1 = Move((short)recv_move_data[1], (unsigned char)recv_move_data[2], (Move::MoveType)recv_move_data[3]);
-            m2 = Move((short)recv_move_data[4], (unsigned char)recv_move_data[5], (Move::MoveType)recv_move_data[6]);
-
-            MPI_Irecv(unexpected_receive_array, 8, MPI_INT, 0, TAG_TERMINATE_COMPUTATION, MPI_COMM_WORLD, &unexpected_receive_request);
-            MPI_Wait(&data_recv_1, &status2);
-
-
-            myBoard.setState(board+4);
-            myBoard.playMove(m1);
-            myBoard.playMove(m2);
-            myBoard.setStartingAlpha(recv_move_data[7]);
-            myBoard.setStartingBeta(recv_move_data[8]);
-            myBoard.setDepth(recv_move_data[9]);
-            myBoard.setStartingDepth(2);
-            myBoard.set_unexpected_receive_array_ptr(unexpected_receive_array);
-            myBoard.set_unexpected_receive_request_ptr(&unexpected_receive_request);
-            myBoard.bestMove();
-
-            int return_vals[5];//0=first move index; 1-3=second move, 4=eval;
-            return_vals[0] = recv_move_data[0];
-            return_vals[1] = recv_move_data[4];
-            return_vals[2] = recv_move_data[5];
-            return_vals[3] = recv_move_data[6];
-            return_vals[4] = myBoard.getBestEval();
-
-            //before sending the data back to master, check if the timeout has been sent - in that case the result is not relevant anymore
-            //TODO update for master having sent it before the iprobe noticed it
-            if(return_vals[4] != TERMINATED_BEST_VAL && return_vals[4] != -TERMINATED_BEST_VAL)
-            {
-                MPI_Isend(return_vals, 5, MPI_INT, 0, TAG_RESULT, MPI_COMM_WORLD, &data_send_1);
-            }
-            else
-            {
-                //printf("rank %d being terminated\n", rank);
-            }
-            MPI_Cancel(&unexpected_receive_request);
-
-
-            cnt ++;
-        }
-        else if( status.MPI_TAG == TAG_DO_NOTHING){
-            //wait until other workers finish the tasks for this ound but still ask for next job as it comes in the next round
-            MPI_Recv(board, 0, MPI_CHAR, 0, TAG_DO_NOTHING, MPI_COMM_WORLD, &status2) ;
-            usleep(100);
-        }
-        else if( status.MPI_TAG == TAG_STOP ){
-            MPI_Recv(board, 0, MPI_CHAR, 0, TAG_STOP, MPI_COMM_WORLD, &status2);
-            return 0;
-        }
-        else if( status.MPI_TAG == TAG_TERMINATE_COMPUTATION ){
-            printf("process %d received tag terminate %d \n", rank, status.MPI_TAG);
-            MPI_Recv(board, 1, MPI_CHAR, 0, TAG_TERMINATE_COMPUTATION, MPI_COMM_WORLD, &status2);
-            usleep(100);
-        }
-        else
-        {
-            printf("process %d received tag %d \n", rank, status.MPI_TAG);
-            usleep(100000);
-        }
-    }
-}
-////////////////////////////////
-
 int main(int argc, char* argv[])
 {
     ////////////////////////////////MPI
@@ -749,6 +873,10 @@ int main(int argc, char* argv[])
     MPI_Barrier(MPI_COMM_WORLD);
     if(rank == 0) //process for networking
     {
+        for(int process = 0; process < numtasks; process++)
+        {
+            g_array_worker_current_task[process] = -1;
+        }
     ////////////////////////////////
         MyDomain d(lport);
         l.install(&d);
