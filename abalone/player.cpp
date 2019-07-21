@@ -17,6 +17,7 @@
 #include <vector>
 #include <tuple>
 #include <iostream>
+#include <algorithm>
 
 #include "board.h"
 #include "search.h"
@@ -87,7 +88,7 @@ using SecondMove = struct
 };
 std::vector<SecondMove> g_second_move_vector;
 int g_second_move_index = 0;
-int g_numSamples = 16;
+int g_numSamples = 8;
 int g_threshold = 50;
 
 /**
@@ -452,7 +453,7 @@ void MyDomain::sampleMoves(std::vector<Move> &output)
     using avtype = std::tuple<Move, int>;
     const int valueOf = 1;
     const int moveOf = 0;
-    std::vector<avtype> actionValues;
+    std::vector<std::tuple<Move, int>> actionValues;
     MoveList list;
     myBoard.generateMoves(list);
     while (list.getNext(m))
@@ -462,15 +463,15 @@ void MyDomain::sampleMoves(std::vector<Move> &output)
         actionValues.push_back(std::make_tuple(m, v));
         myBoard.takeBack();
     }
-    std::stable_sort(actionValues.begin(), actionValues.end(), [valueOf](avtype av1, avtype av2) {
-        return std::get<valueOf>(av1) > std::get<valueOf>(av2);
+    std::stable_sort(actionValues.begin(), actionValues.end(), [valueOf](auto av1, auto av2) {
+        return std::get<int>(av1) > std::get<int>(av2);
     });
     int i;
     for (i = 0; i < std::min(g_numSamples, (int)actionValues.size()); i++)
     {
-        output.push_back(std::get<moveOf>(actionValues[i]));
+        output.push_back(std::get<Move>(actionValues[i]));
     }
-    auto firstVal = std::get<valueOf>(actionValues[0]);
+    auto firstVal = std::get<int>(actionValues[0]);
     while (true)
     {
         if (i >= actionValues.size())

@@ -52,7 +52,7 @@ class ABStrategySorted: public SearchStrategy
      int nodes_evaluated;
      int branches_cut_off[20];
 
-     int numSamples=16;
+     int numSamples=8;
      int threshold=50;
 
     /**
