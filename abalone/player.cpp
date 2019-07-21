@@ -39,6 +39,8 @@
 #define BOARD_SIZE 1024
 #define MAX_EVAL_VALUE 99999
 
+#define TIME_TO_PLAY (3 * 1000)
+
 /* Global, static vars */
 NetworkLoop l;
 Board myBoard;
@@ -71,7 +73,9 @@ bool changeEval = true;
 
 int numtasks, rank;
 
-int g_time_to_play = 3 * 1000;
+bool first_turn = true;
+int mymsecsToPlay = 0;
+int g_time_to_play = TIME_TO_PLAY;
 
 //generate moves for worker threads - global vars
 bool g_first_generation, g_sort_moves = true, g_all_child_moves_generated[MOVE_ARRAY_SIZE];
@@ -146,7 +150,7 @@ Move MyDomain::calculate_best_move(char *str, struct timeval t1)
     {
 
         ////////temporary
-        if (currentMaxDepth > 6)
+        if (currentMaxDepth > 10)
         {
             break;
         }
@@ -302,7 +306,7 @@ Move MyDomain::calculate_best_move(char *str, struct timeval t1)
 
         int msecsPassed = (1000 * t2.tv_sec + t2.tv_usec / 1000) - (1000 * t1.tv_sec + t1.tv_usec / 1000);
         printf("depth: %d BestEval: %d after %d.%03d secs \n", currentMaxDepth, best_eval, msecsPassed / 1000, msecsPassed % 1000);
-        
+
         //myBoard.print();
         myBoard.takeBack();
         //printf("returning board:");
@@ -369,6 +373,10 @@ void MyDomain::received(char *str)
 
     if (myBoard.actColor() & myColor)
     {
+        if (first_turn) {
+          first_turn = false;
+          mymsecsToPlay = myBoard.msecsToPlay(myColor);
+        }
         struct timeval t1, t2;
 
         gettimeofday(&t1, 0);
@@ -399,6 +407,18 @@ void MyDomain::received(char *str)
 
         myBoard.playMove(bestMove, msecsPassed);
         sendBoard(&myBoard);
+
+        if (myBoard.msecsToPlay(myColor) > (mymsecsToPlay * 0.5) && myBoard.msecsToPlay(myColor) <= (mymsecsToPlay * 0.75)) {
+          g_time_to_play = TIME_TO_PLAY * 0.75;
+        }
+
+        if (myBoard.msecsToPlay(myColor) > (mymsecsToPlay * 0.25) && myBoard.msecsToPlay(myColor) <= (mymsecsToPlay * 0.5)) {
+          g_time_to_play = TIME_TO_PLAY * 0.5;
+        }
+
+        if (myBoard.msecsToPlay(myColor) <= (mymsecsToPlay * 0.25)) {
+          g_time_to_play = TIME_TO_PLAY * 0.25;
+        }
 
         if (changeEval)
             ev.changeEvaluation();
@@ -487,7 +507,7 @@ bool MyDomain::generate_move()
 {
     if (g_sort_moves)
     {
-         if (g_first_generation) 
+         if (g_first_generation)
         {
             g_first_move_vector.clear();
             g_second_move_vector.clear();
@@ -511,7 +531,7 @@ bool MyDomain::generate_move()
                 temp.clear();
             }
         }
-        if (g_second_move_index >= g_second_move_vector.size()) 
+        if (g_second_move_index >= g_second_move_vector.size())
         {
             g_first_move_vector.clear();
             g_second_move_vector.clear();
@@ -531,7 +551,7 @@ bool MyDomain::generate_move()
         }
         g_first_move = g_first_move_vector[sm.parent];
         g_first_move_index = sm.parent;
-        g_first_move_array[g_first_move_index] = g_first_move; 
+        g_first_move_array[g_first_move_index] = g_first_move;
         g_second_move = sm.move;
         g_second_move_index++;
         return true;
