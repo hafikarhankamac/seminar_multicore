@@ -272,6 +272,19 @@ Move MyDomain::calculate_best_move(char *str, struct timeval t1)
                             //if (verbose > 0)
                                 printf("     found new GLOBAL best eval %d from %d - move %d \n", best_eval_array[move_index], slave_rank, move_index);
                             //myBoard.print();
+
+
+                            int terminate[8];
+                            terminate[0] = 0;
+                            terminate[1] = best_eval;
+                            terminate[2] = move_index;
+
+                            for (i = 1; i < numtasks; i++)
+                            {
+                                if(i != slave_rank)
+                                    MPI_Isend(terminate, 4, MPI_INT, i, TAG_TERMINATE_COMPUTATION, MPI_COMM_WORLD, &request);
+                            }
+
                         }
                     }
                     tasks_completed++;
@@ -289,10 +302,11 @@ Move MyDomain::calculate_best_move(char *str, struct timeval t1)
                 int msecsPassed = (1000 * t2.tv_sec + t2.tv_usec / 1000) - (1000 * t1.tv_sec + t1.tv_usec / 1000);
                 if (msecsPassed > g_time_to_play)
                 {
-                    int terminate = 1;
+                    int terminate[8];
+                    terminate[0] = 1;
                     for (i = 1; i < numtasks; i++)
                     {
-                        MPI_Isend(&terminate, 1, MPI_INT, i, TAG_TERMINATE_COMPUTATION, MPI_COMM_WORLD, &request);
+                        MPI_Isend(terminate, 4, MPI_INT, i, TAG_TERMINATE_COMPUTATION, MPI_COMM_WORLD, &request);
                     }
                     printf("Cutting at depth: %d \n", currentMaxDepth);
 
@@ -824,8 +838,9 @@ int worker_process()
         }
         else if (status.MPI_TAG == TAG_TERMINATE_COMPUTATION)
         {
+            int receive_array[8];
             printf("process %d received tag terminate %d \n", rank, status.MPI_TAG);
-            MPI_Recv(board, 1, MPI_CHAR, 0, TAG_TERMINATE_COMPUTATION, MPI_COMM_WORLD, &status2);
+            MPI_Recv(&receive_array[0], 4, MPI_INT, 0, TAG_TERMINATE_COMPUTATION, MPI_COMM_WORLD, &status2);
             usleep(100);
         }
         else

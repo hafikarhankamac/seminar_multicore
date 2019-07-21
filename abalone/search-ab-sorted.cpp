@@ -113,8 +113,17 @@ int ABStrategySorted::alphaBeta(int depth, int alpha, int beta)
         MPI_Test(&request, &flag, &status);
         if(flag)
         {
-            //printf("!!!!!!!!!!!!!!!!!!!cutting off worker %d\n", rank);
-            return TERMINATED_BEST_VAL;
+            if(receive_array[0] == 1)
+            {
+                //printf("!!!!!!!!!!!!!!!!!!!cutting off worker %d\n", rank);
+                return TERMINATED_BEST_VAL;
+            }
+            else
+            {
+                printf("received alpha %d old %d \n", receive_array[1], startingAlpha);
+                MPI_Irecv(&receive_array[0], 4, MPI_INT, 0, TAG_TERMINATE_COMPUTATION, MPI_COMM_WORLD, &request);
+            }
+
         }
     }
 
@@ -201,7 +210,7 @@ void ABStrategySorted::searchBestMove()
     MPI_Comm_rank(MPI_COMM_WORLD,&rank);
     if(callReceive == 1)
     {
-        MPI_Irecv(&receive_array[0], 1, MPI_INT, 0, TAG_TERMINATE_COMPUTATION, MPI_COMM_WORLD, &request);
+        MPI_Irecv(&receive_array[0], 4, MPI_INT, 0, TAG_TERMINATE_COMPUTATION, MPI_COMM_WORLD, &request);
     }
     eval = alphaBeta(startingDepth, startingAlpha, startingBeta);
 
