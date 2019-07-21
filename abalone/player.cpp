@@ -17,10 +17,7 @@
 #include <vector>
 #include <tuple>
 #include <iostream>
-<<<<<<< HEAD
 #include <algorithm>
-=======
->>>>>>> origin/alphabeta
 
 #include "board.h"
 #include "search.h"
@@ -91,14 +88,8 @@ using SecondMove = struct
 };
 std::vector<SecondMove> g_second_move_vector;
 int g_second_move_index = 0;
-<<<<<<< HEAD
 int g_numSamples = 8;
 int g_threshold = 50;
-=======
-int g_numSamples = 16;
-int g_threshold = 50;
-
->>>>>>> origin/alphabeta
 
 /**
  * MyDomain
@@ -121,13 +112,8 @@ protected:
 private:
     Board *sent;
     bool generate_move();
-<<<<<<< HEAD
     Move calculate_best_move(char *str, struct timeval start_time);
     void sampleMoves(std::vector<Move> &output);
-=======
-    void sampleMoves(std::vector<Move> &output);
-    Move calculate_best_move(char* str, struct timeval start_time);
->>>>>>> origin/alphabeta
 };
 
 void MyDomain::sendBoard(Board *b)
@@ -160,11 +146,7 @@ Move MyDomain::calculate_best_move(char *str, struct timeval t1)
     {
 
         ////////temporary
-<<<<<<< HEAD
         if (currentMaxDepth > 6)
-=======
-        if(currentMaxDepth > 9)
->>>>>>> origin/alphabeta
         {
             break;
         }
@@ -304,14 +286,9 @@ Move MyDomain::calculate_best_move(char *str, struct timeval t1)
                 if (msecsPassed > g_time_to_play)
                 {
                     int terminate = 1;
-<<<<<<< HEAD
                     for (i = 1; i < numtasks; i++)
                     {
                         MPI_Isend(&terminate, 1, MPI_INT, i, TAG_TERMINATE_COMPUTATION, MPI_COMM_WORLD, &request);
-=======
-                    for (i = 1; i < numtasks; i++) {
-                        MPI_Irsend(&terminate, 1, MPI_INT, i, TAG_TERMINATE_COMPUTATION, MPI_COMM_WORLD, &request );
->>>>>>> origin/alphabeta
                     }
                     printf("Cutting at depth: %d \n", currentMaxDepth);
 
@@ -471,53 +448,8 @@ void MyDomain::received(char *str)
 }
 
 void MyDomain::sampleMoves(std::vector<Move> &output)
-<<<<<<< HEAD
-=======
 {
     Move m;
-    using avtype = std::tuple<Move, int>;
-    const int valueOf = 1;
-    const int moveOf = 0;
-    std::vector<avtype> actionValues;
-    MoveList list;
-    myBoard.generateMoves(list);
-    while (list.getNext(m))
-    {
-        myBoard.playMove(m);
-        auto v = ev.calcEvaluation(&myBoard);
-        actionValues.push_back(std::make_tuple(m, v));
-        myBoard.takeBack();
-    }
-    std::stable_sort(actionValues.begin(), actionValues.end(), [valueOf](avtype av1, avtype av2) {
-        return std::get<valueOf>(av1) > std::get<valueOf>(av2);
-    });
-    int i;
-    for (i = 0; i < std::min(g_numSamples, (int)actionValues.size()); i++)
-    {
-        output.push_back(std::get<moveOf>(actionValues[i]));
-    }
-    auto firstVal = std::get<valueOf>(actionValues[0]);
-    while (true)
-    {
-        if (i >= actionValues.size())
-            break;
-        Move m;
-        int val;
-        std::tie(m, val) = actionValues[i];
-        if ((firstVal - val) > g_threshold)
-            break;
-        output.push_back(m);
-        i++;
-    }
-}
-
-bool MyDomain::generate_move()
->>>>>>> origin/alphabeta
-{
-    Move m;
-    using avtype = std::tuple<Move, int>;
-    const int valueOf = 1;
-    const int moveOf = 0;
     std::vector<std::tuple<Move, int>> actionValues;
     MoveList list;
     myBoard.generateMoves(list);
@@ -528,13 +460,12 @@ bool MyDomain::generate_move()
         actionValues.push_back(std::make_tuple(m, v));
         myBoard.takeBack();
     }
-    std::stable_sort(actionValues.begin(), actionValues.end(), [valueOf](auto av1, auto av2) {
+    std::stable_sort(actionValues.begin(), actionValues.end(), [](auto av1, auto av2) {
         return std::get<int>(av1) > std::get<int>(av2);
     });
     int i;
     for (i = 0; i < std::min(g_numSamples, (int)actionValues.size()); i++)
     {
-<<<<<<< HEAD
         output.push_back(std::get<Move>(actionValues[i]));
     }
     auto firstVal = std::get<int>(actionValues[0]);
@@ -557,9 +488,6 @@ bool MyDomain::generate_move()
     if (g_sort_moves)
     {
          if (g_first_generation) 
-=======
-        if (g_first_generation) 
->>>>>>> origin/alphabeta
         {
             g_first_move_vector.clear();
             g_second_move_vector.clear();
@@ -804,12 +732,8 @@ int worker_process()
     MPI_Status status, status2;
     MPI_Request data_send_1, data_send_2, data_recv_1, data_recv_2;
     int cnt = 0;
-<<<<<<< HEAD
-    while (true)
-=======
     int last_move_number = -1;
     while(true)
->>>>>>> origin/alphabeta
     {
         char board[BOARD_SIZE];
         MPI_Send(board, 0, MPI_CHAR, 0, TAG_ASK_FOR_JOB, MPI_COMM_WORLD);
@@ -829,9 +753,6 @@ int worker_process()
             m2 = Move((short)recv_move_data[4], (unsigned char)recv_move_data[5], (Move::MoveType)recv_move_data[6]);
             MPI_Wait(&data_recv_1, &status2);
 
-<<<<<<< HEAD
-            myBoard.setState(board + 4);
-=======
             myBoard.setState(board+4);
             if(myBoard.getMoveNo() == last_move_number)
             {
@@ -842,7 +763,6 @@ int worker_process()
                 last_move_number = myBoard.getMoveNo();
                 myBoard.setCallReceive(1);
             }
->>>>>>> origin/alphabeta
             myBoard.playMove(m1);
             myBoard.playMove(m2);
             myBoard.setStartingAlpha(recv_move_data[7]);
@@ -863,22 +783,6 @@ int worker_process()
             if (return_vals[4] != TERMINATED_BEST_VAL && return_vals[4] != -TERMINATED_BEST_VAL)
             {
                 MPI_Isend(return_vals, 5, MPI_INT, 0, TAG_RESULT, MPI_COMM_WORLD, &data_send_1);
-<<<<<<< HEAD
-                //
-                // int message_available;
-                // MPI_Status status;
-                // MPI_Request message_type;
-                // MPI_Iprobe(0, TAG_TERMINATE_COMPUTATION, MPI_COMM_WORLD, &message_available, &status);
-                // if(message_available)
-                // {
-                //     //printf("cutting off worker %d just before sending message \n", rank);
-                // }
-                // else
-                // {
-                //     MPI_Isend(return_vals, 5, MPI_INT, 0, TAG_RESULT, MPI_COMM_WORLD, &data_send_1);
-                // }
-=======
->>>>>>> origin/alphabeta
             }
             else
             {
