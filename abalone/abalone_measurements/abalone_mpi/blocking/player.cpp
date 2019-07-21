@@ -100,6 +100,11 @@ void MyDomain::sendBoard(Board* b)
 void MyDomain::received(char* str)
 {
     if (strncmp(str, "quit", 4)==0) {
+      int i;
+      for (i = 1; i < numtasks; i++) {
+          MPI_Recv(str, 0, MPI_CHAR, i, TAG_ASK_FOR_JOB, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+          MPI_Send(str, 0, MPI_CHAR, i, TAG_STOP, MPI_COMM_WORLD);
+      }
     	l.exit();
     	return;
     }
@@ -236,6 +241,11 @@ void MyDomain::received(char* str)
     		case Board::timeout2:
     		case Board::win1:
     		case Board::win2:
+            int i;
+            for (i = 1; i < numtasks; i++) {
+                MPI_Recv(str, 0, MPI_CHAR, i, TAG_ASK_FOR_JOB, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+                MPI_Send(str, 0, MPI_CHAR, i, TAG_STOP, MPI_COMM_WORLD);
+            }
     		    l.exit();
     		default:
     		    break;
@@ -246,6 +256,11 @@ void MyDomain::received(char* str)
     	if (maxMoves == 0) {
     	    printf("Terminating because given number of moves drawn.\n");
     	    broadcast("quit\n");
+          int i;
+          for (i = 1; i < numtasks; i++) {
+              MPI_Recv(str, 0, MPI_CHAR, i, TAG_ASK_FOR_JOB, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+              MPI_Send(str, 0, MPI_CHAR, i, TAG_STOP, MPI_COMM_WORLD);
+          }
     	    l.exit();
     	}
     }
