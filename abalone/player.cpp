@@ -39,7 +39,7 @@
 #define BOARD_SIZE 1024
 #define MAX_EVAL_VALUE 99999
 
-#define TIME_TO_PLAY (3 * 1000)
+#define TIME_TO_PLAY (1.5 * 1000)
 
 /* Global, static vars */
 NetworkLoop l;
@@ -150,7 +150,7 @@ Move MyDomain::calculate_best_move(char *str, struct timeval t1)
     {
 
         ////////temporary
-        if (currentMaxDepth > 3)
+        if (currentMaxDepth > 9)
         {
             break;
         }
@@ -433,7 +433,6 @@ void MyDomain::received(char *str)
         }
         if (changeEval)
             ev.changeEvaluation();
-	printf("Here");
         /* stop player at win position */
         int state = myBoard.validState();
         if ((state != Board::valid1) &&
@@ -459,7 +458,6 @@ void MyDomain::received(char *str)
                 break;
             }
         }
-	printf("Reached Here\n");
         maxMoves--;
         if (maxMoves == 0)
         {
