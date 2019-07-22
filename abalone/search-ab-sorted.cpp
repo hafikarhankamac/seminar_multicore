@@ -47,7 +47,6 @@ class ABStrategySorted: public SearchStrategy
 
  private:
      int rank;
-     int receive_array[8];
      int counter = 0;
 
      int nodes_evaluated;
@@ -55,6 +54,9 @@ class ABStrategySorted: public SearchStrategy
 
      int numSamples=8;
      int threshold=50;
+
+     int updatedAlpha = -99999;
+     int updatedBeta = 99999;
 
     /**
      * Implementation of the strategy.
@@ -110,18 +112,29 @@ int ABStrategySorted::alphaBeta(int depth, int alpha, int beta)
     {
         MPI_Status status;
         int flag;
-        MPI_Test(&request, &flag, &status);
+        MPI_Test(unexpected_receive_request_ptr, &flag, &status);
         if(flag)
         {
-            if(receive_array[0] == 1)
+            MPI_Irecv(unexpected_receive_array, 4, MPI_INT, 0, TAG_TERMINATE_COMPUTATION, MPI_COMM_WORLD, unexpected_receive_request_ptr);
+
+            if(unexpected_receive_array[0] == 1)
             {
                 //printf("!!!!!!!!!!!!!!!!!!!cutting off worker %d\n", rank);
                 return TERMINATED_BEST_VAL;
             }
             else
             {
-                printf("received alpha %d old %d \n", receive_array[1], startingAlpha);
-                MPI_Irecv(&receive_array[0], 4, MPI_INT, 0, TAG_TERMINATE_COMPUTATION, MPI_COMM_WORLD, &request);
+                //printf("received alpha %d beta %d     old alpha %d \n", unexpected_receive_array[1], startingBeta, startingAlpha);
+                if(unexpected_receive_array[1] >= startingBeta)
+                {
+                    //printf("!!!!!!!!!proc %d cutting off the whole tree!!!!received alpha %d beta %d     old alpha %d \n", rank, unexpected_receive_array[1], startingBeta, startingAlpha);
+                    return TERMINATED_BEST_VAL;
+                }
+                else
+                {
+                }
+                //MPI_Request_free(unexpected_receive_request_ptr);
+
             }
 
         }
@@ -135,6 +148,15 @@ int ABStrategySorted::alphaBeta(int depth, int alpha, int beta)
 
     if(depth <= (_maxDepth-2))
     {
+        if(depth % 2 == 0)//maximising
+        {
+            
+        }
+        else //-updatedAlpha = beta
+        {
+
+        }
+
         auto moves = sampleMoves();
         for (auto move: moves)
         {
@@ -206,12 +228,9 @@ void ABStrategySorted::searchBestMove()
         branches_cut_off[i] = 0;
     }
     counter = 0;
-    receive_array[0] = 0;
     MPI_Comm_rank(MPI_COMM_WORLD,&rank);
-    if(callReceive == 1)
-    {
-        MPI_Irecv(&receive_array[0], 4, MPI_INT, 0, TAG_TERMINATE_COMPUTATION, MPI_COMM_WORLD, &request);
-    }
+
+    //MPI_Irecv(unexpected_receive_array, 4, MPI_INT, 0, TAG_TERMINATE_COMPUTATION, MPI_COMM_WORLD, unexpected_receive_request_ptr);
     eval = alphaBeta(startingDepth, startingAlpha, startingBeta);
 
 

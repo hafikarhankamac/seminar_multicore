@@ -39,7 +39,7 @@
 #define BOARD_SIZE 1024
 #define MAX_EVAL_VALUE 99999
 
-#define TIME_TO_PLAY (3 * 1000)
+#define TIME_TO_PLAY (5 * 1000)
 
 /* Global, static vars */
 NetworkLoop l;
@@ -144,13 +144,13 @@ Move MyDomain::calculate_best_move(char *str, struct timeval t1)
     Move bestMove, bestMoveInCurrentDepth, percieved_second_move;
     //printf("--------------------------new round\n");
     //myBoard.print();
-    int currentMaxDepth = 3;
+    int currentMaxDepth = 5;
     bool next_depth = true;
     while (next_depth)
     {
 
         ////////temporary
-        if (currentMaxDepth > 10)
+        if (currentMaxDepth > 5)
         {
             break;
         }
@@ -787,16 +787,22 @@ int worker_process()
             m2 = Move((short)recv_move_data[4], (unsigned char)recv_move_data[5], (Move::MoveType)recv_move_data[6]);
             MPI_Wait(&data_recv_1, &status2);
 
+            int unexpected_receive_array[8] = {0,0,0,0,0,0,0,0};
+            MPI_Request unexpected_receive_request;
+            MPI_Irecv(unexpected_receive_array, 8, MPI_INT, 0, TAG_TERMINATE_COMPUTATION, MPI_COMM_WORLD, &unexpected_receive_request);
+
             myBoard.setState(board+4);
-            if(myBoard.getMoveNo() == last_move_number)
-            {
-                myBoard.setCallReceive(0);
-            }
-            else
-            {
-                last_move_number = myBoard.getMoveNo();
-                myBoard.setCallReceive(1);
-            }
+            myBoard.set_unexpected_receive_array_ptr(unexpected_receive_array);
+            myBoard.set_unexpected_receive_request_ptr(&unexpected_receive_request);
+            // if(myBoard.getMoveNo() == last_move_number)
+            // {
+            //     myBoard.setCallReceive(0);
+            // }
+            // else
+            // {
+            //     last_move_number = myBoard.getMoveNo();
+            //     myBoard.setCallReceive(1);
+            // }
             myBoard.playMove(m1);
             myBoard.playMove(m2);
             myBoard.setStartingAlpha(recv_move_data[7]);
@@ -822,6 +828,13 @@ int worker_process()
             {
                 //printf("rank %d being terminated\n", rank);
             }
+            int flag;
+            MPI_Test(&unexpected_receive_request, &flag, &status);
+            if(!flag)
+            {
+                MPI_Cancel(&unexpected_receive_request);
+            }
+
 
             cnt++;
         }
