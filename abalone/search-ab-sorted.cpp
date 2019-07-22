@@ -124,6 +124,10 @@ int ABStrategySorted::alphaBeta(int depth, int alpha, int beta)
             }
             else
             {
+                if(unexpected_receive_array[1] > updatedAlpha)
+                {
+                    updatedAlpha = unexpected_receive_array[1];
+                }
                 //printf("received alpha %d beta %d     old alpha %d \n", unexpected_receive_array[1], startingBeta, startingAlpha);
                 if(unexpected_receive_array[1] >= startingBeta)
                 {
@@ -148,18 +152,17 @@ int ABStrategySorted::alphaBeta(int depth, int alpha, int beta)
 
     if(depth <= (_maxDepth-2))
     {
-        if(depth % 2 == 0)//maximising
-        {
-            
-        }
-        else //-updatedAlpha = beta
-        {
-
-        }
-
         auto moves = sampleMoves();
         for (auto move: moves)
         {
+            if(depth % 2 == 0 && updatedAlpha > alpha)//maximising
+            {
+                alpha = updatedAlpha;
+            }
+            else if(depth % 2 == 1 && -updatedAlpha < beta) //-updatedAlpha = beta
+            {
+                beta = updatedAlpha;
+            }
             playMove(move);
             int val = -alphaBeta(depth+1, -beta, -alpha);
             if(val == TERMINATED_BEST_VAL || val == -TERMINATED_BEST_VAL)
