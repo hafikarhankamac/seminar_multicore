@@ -150,7 +150,7 @@ Move MyDomain::calculate_best_move(char *str, struct timeval t1)
     {
 
         ////////temporary
-        if (currentMaxDepth > 10)
+        if (currentMaxDepth > 3)
         {
             break;
         }
@@ -287,6 +287,7 @@ Move MyDomain::calculate_best_move(char *str, struct timeval t1)
             {
                 gettimeofday(&t2, 0);
                 int msecsPassed = (1000 * t2.tv_sec + t2.tv_usec / 1000) - (1000 * t1.tv_sec + t1.tv_usec / 1000);
+		// printf("%d vs %d\n", msecsPassed, g_time_to_play);
                 if (msecsPassed > g_time_to_play)
                 {
                     int terminate = 1;
@@ -306,6 +307,19 @@ Move MyDomain::calculate_best_move(char *str, struct timeval t1)
 
         int msecsPassed = (1000 * t2.tv_sec + t2.tv_usec / 1000) - (1000 * t1.tv_sec + t1.tv_usec / 1000);
         printf("depth: %d BestEval: %d after %d.%03d secs \n", currentMaxDepth, best_eval, msecsPassed / 1000, msecsPassed % 1000);
+	// Do not go next depth if you don't have time
+	auto future = 3 * msecsPassed;
+	if (future > g_time_to_play) {
+	  int terminate = 1;
+	  for (i = 1; i < numtasks; i++)
+	    {
+	      MPI_Isend(&terminate, 1, MPI_INT, i, TAG_TERMINATE_COMPUTATION, MPI_COMM_WORLD, &request);
+	    }
+	  printf("Cutting at depth: %d \n", currentMaxDepth);
+
+	  myBoard.takeBack();
+	  return bestMove;
+	}
 
         //myBoard.print();
         myBoard.takeBack();
@@ -396,6 +410,7 @@ void MyDomain::received(char *str)
             (1000 * t2.tv_sec + t2.tv_usec / 1000) -
             (1000 * t1.tv_sec + t1.tv_usec / 1000);
 
+
         printf("%s ", (myColor == Board::color1) ? "O" : "X");
         if (bestMove.type == Move::none)
         {
@@ -404,25 +419,21 @@ void MyDomain::received(char *str)
         }
         printf("draws '%s' (after %d.%03d secs)...\n",
                bestMove.name(), msecsPassed / 1000, msecsPassed % 1000);
-
         myBoard.playMove(bestMove, msecsPassed);
         sendBoard(&myBoard);
 
         if (myBoard.msecsToPlay(myColor) > (mymsecsToPlay * 0.5) && myBoard.msecsToPlay(myColor) <= (mymsecsToPlay * 0.75)) {
           g_time_to_play = TIME_TO_PLAY * 0.75;
         }
-
         if (myBoard.msecsToPlay(myColor) > (mymsecsToPlay * 0.25) && myBoard.msecsToPlay(myColor) <= (mymsecsToPlay * 0.5)) {
           g_time_to_play = TIME_TO_PLAY * 0.5;
         }
-
         if (myBoard.msecsToPlay(myColor) <= (mymsecsToPlay * 0.25)) {
           g_time_to_play = TIME_TO_PLAY * 0.25;
         }
-
         if (changeEval)
             ev.changeEvaluation();
-
+	printf("Here");
         /* stop player at win position */
         int state = myBoard.validState();
         if ((state != Board::valid1) &&
@@ -448,7 +459,7 @@ void MyDomain::received(char *str)
                 break;
             }
         }
-
+	printf("Reached Here\n");
         maxMoves--;
         if (maxMoves == 0)
         {
@@ -774,6 +785,8 @@ int worker_process()
             MPI_Wait(&data_recv_1, &status2);
 
             myBoard.setState(board+4);
+	    myBoard.setMSecsToPlay(Board::color1, 0);
+	    myBoard.setMSecsToPlay(Board::color2, 0);
             if(myBoard.getMoveNo() == last_move_number)
             {
                 myBoard.setCallReceive(0);
