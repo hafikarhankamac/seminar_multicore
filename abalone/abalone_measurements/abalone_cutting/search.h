@@ -9,6 +9,7 @@
 #define SEARCH_H
 
 #include "move.h"
+#include "mpi.h"
 
 class Board;
 class Evaluator;
@@ -73,6 +74,11 @@ class SearchStrategy
     void setStartingDepth(int d) { startingDepth = d; }
     void setStartingAlpha(int d) { startingAlpha = d; }
     void setStartingBeta(int d) { startingBeta = d; }
+    void setCallReceive(int d) { callReceive = d; }
+    void set_unexpected_receive_request_ptr(MPI_Request * req_ptr) { unexpected_receive_request_ptr = req_ptr; }
+    void set_unexpected_receive_array_ptr(int* int_ptr) { unexpected_receive_array = int_ptr; }
+
+
 
 
     void setEvaluator(Evaluator* e) { _ev = e; }
@@ -88,6 +94,7 @@ class SearchStrategy
 
     void stopSearch() { _stopSearch = true; }
     int eval;
+    //MPI_Request request;
 
     /**
      * Overwrite this to implement your search strategy
@@ -126,7 +133,9 @@ class SearchStrategy
     int startingDepth = 0;
     int startingAlpha = -99999;
     int startingBeta = 99999;
-
+    int callReceive = 1;
+    int * unexpected_receive_array;
+    MPI_Request * unexpected_receive_request_ptr;
  private:
 
     const char* _name;

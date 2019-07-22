@@ -5,10 +5,13 @@
  *
  * (c) 2006, Josef Weidendorfer
  */
-
+#include <stdio.h>
 #include "search.h"
 #include "board.h"
 #include "eval.h"
+#include <tuple>
+#include "mpi.h"
+
 
 /**
  * To create your own search strategy:
@@ -25,52 +28,59 @@
  * - call finishedNode() when finishing evaluation of a tree node
  * - Use _maxDepth for strength level (maximal level searched in tree)
  */
-class OneLevelStrategy: public SearchStrategy
+class MinimaxStrategy: public SearchStrategy
 {
  public:
     // Defines the name of the strategy
-    OneLevelStrategy(): SearchStrategy("OneLevel") {}
+    MinimaxStrategy(): SearchStrategy("Minimax") {}
 
     // Factory method: just return a new instance of this class
-    SearchStrategy* clone() { return new OneLevelStrategy(); }
+    SearchStrategy* clone() { return new MinimaxStrategy(); }
 
  private:
-
+     int nodes_evaluated;
     /**
      * Implementation of the strategy.
      */
+    int minimax(int depth=0);
     void searchBestMove();
 };
 
-
-void OneLevelStrategy::searchBestMove()
+int MinimaxStrategy::minimax(int depth)
 {
-    // we try to maximize bestEvaluation
-    int bestEval = minEvaluation();
-    int eval;
-
-    Move m;
-    MoveList list;
-
-    // generate list of allowed moves, put them into <list>
-    generateMoves(list);
-
-    // loop over all moves
-    while(list.getNext(m)) {
-
-    	// draw move, evalute, and restore position
-    	playMove(m);
-    	eval = evaluate();
-    	takeBack();
-
-    	if (eval > bestEval) {
-    	    bestEval = eval;
-    	    foundBestMove(0, m, eval);
-    	}
+    bool max = (depth + 1) % 2;//0=min, 1=max
+    if (depth == _maxDepth || !_board->isValid())
+    {
+        return max ? -(evaluate()-depth) : evaluate()-depth ;
     }
 
-    finishedNode(0,0);
+    MoveList list;
+    generateMoves(list);
+    Move move;
+    int bestVal = max ? minEvaluation() : maxEvaluation() ;
+    int i;
+    for(i = 0; list.getNext(move); i++) {
+        playMove(move);
+        int val = minimax(depth+1);
+        takeBack();
+        if ((max && val > bestVal) || (!max && val < bestVal)) {
+            bestVal = val;
+            if (depth == startingDepth)
+            {
+                bestVal = val;
+                foundBestMove(depth, move, bestVal);
+            }
+	    }
+
+    }
+
+    return bestVal;
+}
+
+void MinimaxStrategy::searchBestMove()
+{
+    eval = minimax(startingDepth);
 }
 
 // register ourselve as a search strategy
-OneLevelStrategy oneLevelStrategy;
+MinimaxStrategy miniMaxStrategy;

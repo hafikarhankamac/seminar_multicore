@@ -10,13 +10,13 @@
 #CXX = icpc
 
 # Use this for MPI
-CXX = mpicxx
+CXX = mpiCC
 
 
 ### Options
 
 # Useful options for GCC
-CXXFLAGS=-O3
+CXXFLAGS=-O3 --std=c++14
 #LDFLAGS=
 
 # Useful options for Intel C++

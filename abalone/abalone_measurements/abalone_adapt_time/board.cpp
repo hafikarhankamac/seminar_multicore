@@ -891,6 +891,12 @@ void Board::setStartingDepth(int d)
     _ss->setStartingDepth(d);
 }
 
+void Board::setCallReceive(int d)
+{
+    if (!_ss) return;
+    _ss->setCallReceive(d);
+}
+
 void Board::setStartingAlpha(int d)
 {
     if (!_ss) return;

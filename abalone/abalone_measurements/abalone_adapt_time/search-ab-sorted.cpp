@@ -13,8 +13,13 @@
 #include <algorithm>
 #include <tuple>
 #include <iostream>
-// #include "mpi.h"
+#include <unistd.h>
 
+#include "mpi.h"
+
+#define TAG_TERMINATE_COMPUTATION 7
+
+#define TERMINATED_BEST_VAL 987654321
 
 /**
  * To create your own search strategy:
@@ -35,33 +40,41 @@ class ABStrategySorted: public SearchStrategy
 {
  public:
     // Defines the name of the strategy
-    ABStrategySorted(): SearchStrategy("AlphaBetaSorted") {}
+    ABStrategySorted(): SearchStrategy("AlphaBetaSorted/Sampling") {}
 
     // Factory method: just return a new instance of this class
     SearchStrategy* clone() { return new ABStrategySorted(); }
 
-    int startingDepth = 0;
-    int eval = 0;
  private:
+     int rank;
+     int receive_array[8];
+     int counter = 0;
+
      int nodes_evaluated;
      int branches_cut_off[20];
+
      int numSamples=8;
      int threshold=50;
+
     /**
      * Implementation of the strategy.
      */
     int alphaBeta(int depth=0, int alpha = -999999, int beta = 999999);
     void searchBestMove();
+
     std::vector<Move> sampleMoves();
 };
 
-std::vector<Move> ABStrategySorted::sampleMoves() 
+
+std::vector<Move> ABStrategySorted::sampleMoves()
 {
+    using avtype = std::tuple<Move, int>;
+    const int valueOf = 1;
+    const int moveOf = 0;
     std::vector<Move> sortedMoves;
     MoveList list;
     Move move;
-    using Value = int;
-    std::vector<std::tuple<Move, Value>> actionValues;
+    std::vector<avtype> actionValues;
     generateMoves(list);
     while (list.getNext(move))
     {
@@ -69,19 +82,19 @@ std::vector<Move> ABStrategySorted::sampleMoves()
         actionValues.push_back(std::make_tuple(move, evaluate()));
         takeBack();
     }
-    std::stable_sort(actionValues.begin(), actionValues.end(), [](auto a, auto b) {
-        return std::get<Value>(a) > std::get<Value>(b);
+    std::stable_sort(actionValues.begin(), actionValues.end(), [](avtype a, avtype b) {
+        return std::get<valueOf>(a) > std::get<valueOf>(b);
     });
     int i;
-    for (i = 0; i < std::min(numSamples, (int)actionValues.size()); i++) 
+    for (i = 0; i < std::min(numSamples, (int)actionValues.size()); i++)
     {
-        sortedMoves.push_back(std::get<Move>(actionValues[i]));
+        sortedMoves.push_back(std::get<moveOf>(actionValues[i]));
     }
-    auto firstVal = std::get<Value>(actionValues[0]);
-    while (true) 
+    auto firstVal = std::get<valueOf>(actionValues[0]);
+    while (true)
     {
         if (i >= actionValues.size()) break;
-        Move m; Value val; std::tie(m, val) = actionValues[i];
+        Move m; int val; std::tie(m, val) = actionValues[i];
         if ((firstVal - val) > threshold) break;
         sortedMoves.push_back(m);
         i++;
@@ -89,9 +102,23 @@ std::vector<Move> ABStrategySorted::sampleMoves()
     return sortedMoves;
 }
 
+
 int ABStrategySorted::alphaBeta(int depth, int alpha, int beta)
 {
-     if (depth == _maxDepth || !_board->isValid())
+    counter++;
+    if(counter % 4 == 0)
+    {
+        MPI_Status status;
+        int flag;
+        MPI_Test(&request, &flag, &status);
+        if(flag)
+        {
+            //printf("!!!!!!!!!!!!!!!!!!!cutting off worker %d\n", rank);
+            return TERMINATED_BEST_VAL;
+        }
+    }
+
+    if (depth == _maxDepth || !_board->isValid())
     {
         return -(evaluate()-depth);
     }
@@ -169,8 +196,16 @@ void ABStrategySorted::searchBestMove()
     {
         branches_cut_off[i] = 0;
     }
-    eval = alphaBeta(startingDepth, -9999999, 9999999);
-    std::cout<<"Eval for move: "<<eval<<"\n";
+    counter = 0;
+    receive_array[0] = 0;
+    MPI_Comm_rank(MPI_COMM_WORLD,&rank);
+    if(callReceive == 1)
+    {
+        MPI_Irecv(&receive_array[0], 1, MPI_INT, 0, TAG_TERMINATE_COMPUTATION, MPI_COMM_WORLD, &request);
+    }
+    eval = alphaBeta(startingDepth, startingAlpha, startingBeta);
+
+
     // for(int i = 0; i<_maxDepth; i++)
     // {
     //     printf("     cut off %d branches at depth %d \n",branches_cut_off[i], i);

@@ -10,6 +10,7 @@
 #define BOARD_H
 
 #include "move.h"
+#include "mpi.h"
 
 class SearchStrategy;
 class Evaluator;
@@ -155,6 +156,10 @@ class Board
   void setStartingDepth(int d);
   void setStartingAlpha(int d);
   void setStartingBeta(int d);
+  void setCallReceive(int d);
+  void set_unexpected_receive_request_ptr(MPI_Request * req_ptr);
+  void set_unexpected_receive_array_ptr(int* int_ptr);
+
 
   Move randomMove();
   void stopSearch();
@@ -178,7 +183,7 @@ class Board
   void print();
 
   static int fieldDiffOfDir(int d) { return direction[d]; }
-
+  int getMoveNo() {return _moveNo; }
  private:
   void setFieldValues();
 

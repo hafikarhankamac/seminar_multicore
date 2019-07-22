@@ -39,7 +39,7 @@
 #define BOARD_SIZE 1024
 #define MAX_EVAL_VALUE 99999
 
-#define TIME_TO_PLAY (2 * 1000)
+#define TIME_TO_PLAY (5 * 1000)
 
 /* Global, static vars */
 NetworkLoop l;
@@ -92,7 +92,7 @@ using SecondMove = struct
 };
 std::vector<SecondMove> g_second_move_vector;
 int g_second_move_index = 0;
-int g_numSamples = 16;
+int g_numSamples = 8;
 int g_threshold = 50;
 
 /**
@@ -117,7 +117,7 @@ private:
     Board *sent;
     bool generate_move();
     Move calculate_best_move(char *str, struct timeval start_time);
-  void sampleMoves(std::vector<Move> &output, int=0);
+    void sampleMoves(std::vector<Move> &output);
 };
 
 void MyDomain::sendBoard(Board *b)
@@ -144,13 +144,13 @@ Move MyDomain::calculate_best_move(char *str, struct timeval t1)
     Move bestMove, bestMoveInCurrentDepth, percieved_second_move;
     //printf("--------------------------new round\n");
     //myBoard.print();
-    int currentMaxDepth = 3;
+    int currentMaxDepth = 5;
     bool next_depth = true;
     while (next_depth)
     {
 
         ////////temporary
-        if (currentMaxDepth > 9)
+        if (currentMaxDepth > 5)
         {
             break;
         }
@@ -272,6 +272,19 @@ Move MyDomain::calculate_best_move(char *str, struct timeval t1)
                             //if (verbose > 0)
                                 printf("     found new GLOBAL best eval %d from %d - move %d \n", best_eval_array[move_index], slave_rank, move_index);
                             //myBoard.print();
+
+
+                            int terminate[8];
+                            terminate[0] = 0;
+                            terminate[1] = best_eval;
+                            terminate[2] = move_index;
+
+                            for (i = 1; i < numtasks; i++)
+                            {
+                                if(i != slave_rank)
+                                    MPI_Isend(terminate, 4, MPI_INT, i, TAG_TERMINATE_COMPUTATION, MPI_COMM_WORLD, &request);
+                            }
+
                         }
                     }
                     tasks_completed++;
@@ -287,13 +300,13 @@ Move MyDomain::calculate_best_move(char *str, struct timeval t1)
             {
                 gettimeofday(&t2, 0);
                 int msecsPassed = (1000 * t2.tv_sec + t2.tv_usec / 1000) - (1000 * t1.tv_sec + t1.tv_usec / 1000);
-		// printf("%d vs %d\n", msecsPassed, g_time_to_play);
                 if (msecsPassed > g_time_to_play)
                 {
-                    int terminate = 1;
+                    int terminate[8];
+                    terminate[0] = 1;
                     for (i = 1; i < numtasks; i++)
                     {
-                        MPI_Isend(&terminate, 1, MPI_INT, i, TAG_TERMINATE_COMPUTATION, MPI_COMM_WORLD, &request);
+                        MPI_Isend(terminate, 4, MPI_INT, i, TAG_TERMINATE_COMPUTATION, MPI_COMM_WORLD, &request);
                     }
                     printf("Cutting at depth: %d \n", currentMaxDepth);
 
@@ -307,19 +320,6 @@ Move MyDomain::calculate_best_move(char *str, struct timeval t1)
 
         int msecsPassed = (1000 * t2.tv_sec + t2.tv_usec / 1000) - (1000 * t1.tv_sec + t1.tv_usec / 1000);
         printf("depth: %d BestEval: %d after %d.%03d secs \n", currentMaxDepth, best_eval, msecsPassed / 1000, msecsPassed % 1000);
-	// Do not go next depth if you don't have time
-	auto future = 3 * msecsPassed;
-	if (future > g_time_to_play) {
-	  int terminate = 1;
-	  for (i = 1; i < numtasks; i++)
-	    {
-	      MPI_Isend(&terminate, 1, MPI_INT, i, TAG_TERMINATE_COMPUTATION, MPI_COMM_WORLD, &request);
-	    }
-	  printf("Cutting at depth: %d \n", currentMaxDepth);
-
-	  myBoard.takeBack();
-	  return bestMove;
-	}
 
         //myBoard.print();
         myBoard.takeBack();
@@ -410,7 +410,6 @@ void MyDomain::received(char *str)
             (1000 * t2.tv_sec + t2.tv_usec / 1000) -
             (1000 * t1.tv_sec + t1.tv_usec / 1000);
 
-
         printf("%s ", (myColor == Board::color1) ? "O" : "X");
         if (bestMove.type == Move::none)
         {
@@ -419,20 +418,25 @@ void MyDomain::received(char *str)
         }
         printf("draws '%s' (after %d.%03d secs)...\n",
                bestMove.name(), msecsPassed / 1000, msecsPassed % 1000);
+
         myBoard.playMove(bestMove, msecsPassed);
         sendBoard(&myBoard);
 
         if (myBoard.msecsToPlay(myColor) > (mymsecsToPlay * 0.5) && myBoard.msecsToPlay(myColor) <= (mymsecsToPlay * 0.75)) {
           g_time_to_play = TIME_TO_PLAY * 0.75;
         }
+
         if (myBoard.msecsToPlay(myColor) > (mymsecsToPlay * 0.25) && myBoard.msecsToPlay(myColor) <= (mymsecsToPlay * 0.5)) {
           g_time_to_play = TIME_TO_PLAY * 0.5;
         }
+
         if (myBoard.msecsToPlay(myColor) <= (mymsecsToPlay * 0.25)) {
           g_time_to_play = TIME_TO_PLAY * 0.25;
         }
+
         if (changeEval)
             ev.changeEvaluation();
+
         /* stop player at win position */
         int state = myBoard.validState();
         if ((state != Board::valid1) &&
@@ -458,6 +462,7 @@ void MyDomain::received(char *str)
                 break;
             }
         }
+
         maxMoves--;
         if (maxMoves == 0)
         {
@@ -476,7 +481,7 @@ void MyDomain::received(char *str)
     }
 }
 
-void MyDomain::sampleMoves(std::vector<Move> &output, int depth)
+void MyDomain::sampleMoves(std::vector<Move> &output)
 {
     Move m;
     std::vector<std::tuple<Move, int>> actionValues;
@@ -493,7 +498,7 @@ void MyDomain::sampleMoves(std::vector<Move> &output, int depth)
         return std::get<int>(av1) > std::get<int>(av2);
     });
     int i;
-    for (i = 0; i < std::min(g_numSamples-depth, (int)actionValues.size()); i++)
+    for (i = 0; i < std::min(g_numSamples, (int)actionValues.size()); i++)
     {
         output.push_back(std::get<Move>(actionValues[i]));
     }
@@ -527,12 +532,12 @@ bool MyDomain::generate_move()
         // Initializationx
         if (g_first_move_vector.empty())
         {
-	  sampleMoves(g_first_move_vector, 0);
+            sampleMoves(g_first_move_vector);
             std::vector<Move> temp;
             for (int i = 0; i < g_first_move_vector.size(); i++)
             {
                 myBoard.playMove(g_first_move_vector[i]);
-                sampleMoves(temp, 1);
+                sampleMoves(temp);
                 g_number_child_moves_total[i] = temp.size();
                 for (auto m: temp)
                     g_second_move_vector.push_back(SecondMove{i, m});
@@ -782,18 +787,22 @@ int worker_process()
             m2 = Move((short)recv_move_data[4], (unsigned char)recv_move_data[5], (Move::MoveType)recv_move_data[6]);
             MPI_Wait(&data_recv_1, &status2);
 
+            int unexpected_receive_array[8] = {0,0,0,0,0,0,0,0};
+            MPI_Request unexpected_receive_request;
+            MPI_Irecv(unexpected_receive_array, 8, MPI_INT, 0, TAG_TERMINATE_COMPUTATION, MPI_COMM_WORLD, &unexpected_receive_request);
+
             myBoard.setState(board+4);
-	    myBoard.setMSecsToPlay(Board::color1, 0);
-	    myBoard.setMSecsToPlay(Board::color2, 0);
-            if(myBoard.getMoveNo() == last_move_number)
-            {
-                myBoard.setCallReceive(0);
-            }
-            else
-            {
-                last_move_number = myBoard.getMoveNo();
-                myBoard.setCallReceive(1);
-            }
+            myBoard.set_unexpected_receive_array_ptr(unexpected_receive_array);
+            myBoard.set_unexpected_receive_request_ptr(&unexpected_receive_request);
+            // if(myBoard.getMoveNo() == last_move_number)
+            // {
+            //     myBoard.setCallReceive(0);
+            // }
+            // else
+            // {
+            //     last_move_number = myBoard.getMoveNo();
+            //     myBoard.setCallReceive(1);
+            // }
             myBoard.playMove(m1);
             myBoard.playMove(m2);
             myBoard.setStartingAlpha(recv_move_data[7]);
@@ -819,6 +828,13 @@ int worker_process()
             {
                 //printf("rank %d being terminated\n", rank);
             }
+            int flag;
+            MPI_Test(&unexpected_receive_request, &flag, &status);
+            if(!flag)
+            {
+                MPI_Cancel(&unexpected_receive_request);
+            }
+
 
             cnt++;
         }
@@ -835,8 +851,9 @@ int worker_process()
         }
         else if (status.MPI_TAG == TAG_TERMINATE_COMPUTATION)
         {
+            int receive_array[8];
             printf("process %d received tag terminate %d \n", rank, status.MPI_TAG);
-            MPI_Recv(board, 1, MPI_CHAR, 0, TAG_TERMINATE_COMPUTATION, MPI_COMM_WORLD, &status2);
+            MPI_Recv(&receive_array[0], 4, MPI_INT, 0, TAG_TERMINATE_COMPUTATION, MPI_COMM_WORLD, &status2);
             usleep(100);
         }
         else

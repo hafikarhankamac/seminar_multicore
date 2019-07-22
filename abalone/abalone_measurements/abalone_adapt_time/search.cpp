@@ -94,6 +94,7 @@ bool SearchCallbacks::afterEval()
 
     if (_msecsPassed <1) _msecsPassed = 1;
     if (_nodesVisited<1) _nodesVisited = 1;
+    printf("Computing eps....\n");
     int eps = _leavesVisited / _msecsPassed;
     if (_verbose)
 	printf(" EvalRate %d k/s (%d evals, %d msecs)\n",

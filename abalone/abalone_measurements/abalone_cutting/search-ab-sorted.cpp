@@ -13,6 +13,8 @@
 #include <algorithm>
 #include <tuple>
 #include <iostream>
+#include <unistd.h>
+
 #include "mpi.h"
 
 #define TAG_TERMINATE_COMPUTATION 7
@@ -44,14 +46,17 @@ class ABStrategySorted: public SearchStrategy
     SearchStrategy* clone() { return new ABStrategySorted(); }
 
  private:
+     int rank;
      int counter = 0;
-     char tmp_char[2];
 
      int nodes_evaluated;
      int branches_cut_off[20];
 
-     int numSamples=16;
+     int numSamples=8;
      int threshold=50;
+
+     int updatedAlpha = -99999;
+     int updatedBeta = 99999;
 
     /**
      * Implementation of the strategy.
@@ -65,11 +70,13 @@ class ABStrategySorted: public SearchStrategy
 
 std::vector<Move> ABStrategySorted::sampleMoves()
 {
+    using avtype = std::tuple<Move, int>;
+    const int valueOf = 1;
+    const int moveOf = 0;
     std::vector<Move> sortedMoves;
     MoveList list;
     Move move;
-    using Value = int;
-    std::vector<std::tuple<Move, Value>> actionValues;
+    std::vector<avtype> actionValues;
     generateMoves(list);
     while (list.getNext(move))
     {
@@ -77,19 +84,19 @@ std::vector<Move> ABStrategySorted::sampleMoves()
         actionValues.push_back(std::make_tuple(move, evaluate()));
         takeBack();
     }
-    std::stable_sort(actionValues.begin(), actionValues.end(), [](auto a, auto b) {
-        return std::get<Value>(a) > std::get<Value>(b);
+    std::stable_sort(actionValues.begin(), actionValues.end(), [](avtype a, avtype b) {
+        return std::get<valueOf>(a) > std::get<valueOf>(b);
     });
     int i;
     for (i = 0; i < std::min(numSamples, (int)actionValues.size()); i++)
     {
-        sortedMoves.push_back(std::get<Move>(actionValues[i]));
+        sortedMoves.push_back(std::get<moveOf>(actionValues[i]));
     }
-    auto firstVal = std::get<Value>(actionValues[0]);
+    auto firstVal = std::get<valueOf>(actionValues[0]);
     while (true)
     {
         if (i >= actionValues.size()) break;
-        Move m; Value val; std::tie(m, val) = actionValues[i];
+        Move m; int val; std::tie(m, val) = actionValues[i];
         if ((firstVal - val) > threshold) break;
         sortedMoves.push_back(m);
         i++;
@@ -101,19 +108,39 @@ std::vector<Move> ABStrategySorted::sampleMoves()
 int ABStrategySorted::alphaBeta(int depth, int alpha, int beta)
 {
     counter++;
-    if(counter%1000 == 0)
+    if(counter % 4 == 0)
     {
-        int message_available;
         MPI_Status status;
-        MPI_Request message_type;
-        MPI_Iprobe(0, TAG_TERMINATE_COMPUTATION, MPI_COMM_WORLD, &message_available, &status);
-        if(message_available)
+        int flag;
+        MPI_Test(unexpected_receive_request_ptr, &flag, &status);
+        if(flag)
         {
-            //int rank;
-            //MPI_Comm_rank(MPI_COMM_WORLD,&rank);
-            //printf("cutting off worker %d\n", rank);
-            MPI_Irecv(tmp_char, 0, MPI_CHAR, 0, TAG_TERMINATE_COMPUTATION, MPI_COMM_WORLD, &message_type);
-            return TERMINATED_BEST_VAL;
+            MPI_Irecv(unexpected_receive_array, 4, MPI_INT, 0, TAG_TERMINATE_COMPUTATION, MPI_COMM_WORLD, unexpected_receive_request_ptr);
+
+            if(unexpected_receive_array[0] == 1)
+            {
+                //printf("!!!!!!!!!!!!!!!!!!!cutting off worker %d\n", rank);
+                return TERMINATED_BEST_VAL;
+            }
+            else
+            {
+                if(unexpected_receive_array[1] > updatedAlpha)
+                {
+                    updatedAlpha = unexpected_receive_array[1];
+                }
+                //printf("received alpha %d beta %d     old alpha %d \n", unexpected_receive_array[1], startingBeta, startingAlpha);
+                if(unexpected_receive_array[1] >= startingBeta)
+                {
+                    //printf("!!!!!!!!!proc %d cutting off the whole tree!!!!received alpha %d beta %d     old alpha %d \n", rank, unexpected_receive_array[1], startingBeta, startingAlpha);
+                    return TERMINATED_BEST_VAL;
+                }
+                else
+                {
+                }
+                //MPI_Request_free(unexpected_receive_request_ptr);
+
+            }
+
         }
     }
 
@@ -123,16 +150,22 @@ int ABStrategySorted::alphaBeta(int depth, int alpha, int beta)
     }
     int bestVal = minEvaluation();
 
-
-
     if(depth <= (_maxDepth-2))
     {
         auto moves = sampleMoves();
         for (auto move: moves)
         {
+            if(depth % 2 == 0 && updatedAlpha > alpha)//maximising
+            {
+                alpha = updatedAlpha;
+            }
+            else if(depth % 2 == 1 && -updatedAlpha < beta) //-updatedAlpha = beta
+            {
+                beta = updatedAlpha;
+            }
             playMove(move);
             int val = -alphaBeta(depth+1, -beta, -alpha);
-            if(val == TERMINATED_BEST_VAL)
+            if(val == TERMINATED_BEST_VAL || val == -TERMINATED_BEST_VAL)
             { //if this value returned, exit asap
                 return TERMINATED_BEST_VAL;
             }
@@ -144,13 +177,10 @@ int ABStrategySorted::alphaBeta(int depth, int alpha, int beta)
                     foundBestMove(depth, move, bestVal);
                 }
             }
-
             if(bestVal > alpha)
             {
-                //printf("moving  alpha  from %d to %d at depth %d.  Beta is %d\n", alpha, bestVal, depth, beta);
                 alpha = bestVal;
             }
-
             if(alpha >= beta)
             {
                 branches_cut_off[depth]++;
@@ -167,7 +197,7 @@ int ABStrategySorted::alphaBeta(int depth, int alpha, int beta)
         for(i = 0; list.getNext(move); i++) {
             playMove(move);
             int val = -alphaBeta(depth+1, -beta, -alpha);
-            if(val == TERMINATED_BEST_VAL)
+            if(val == TERMINATED_BEST_VAL || val == -TERMINATED_BEST_VAL)
             { //if this value returned, exit asap
                 return TERMINATED_BEST_VAL;
             }
@@ -182,10 +212,8 @@ int ABStrategySorted::alphaBeta(int depth, int alpha, int beta)
 
             if(bestVal > alpha)
             {
-                //printf("moving  alpha  from %d to %d at depth %d.  Beta is %d\n", alpha, bestVal, depth, beta);
                 alpha = bestVal;
             }
-
             if(alpha >= beta)
             {
                 branches_cut_off[depth]++;
@@ -193,7 +221,6 @@ int ABStrategySorted::alphaBeta(int depth, int alpha, int beta)
             }
         }
     }
-
     return bestVal;
 }
 
@@ -203,7 +230,13 @@ void ABStrategySorted::searchBestMove()
     {
         branches_cut_off[i] = 0;
     }
+    counter = 0;
+    MPI_Comm_rank(MPI_COMM_WORLD,&rank);
+
+    //MPI_Irecv(unexpected_receive_array, 4, MPI_INT, 0, TAG_TERMINATE_COMPUTATION, MPI_COMM_WORLD, unexpected_receive_request_ptr);
     eval = alphaBeta(startingDepth, startingAlpha, startingBeta);
+
+
     // for(int i = 0; i<_maxDepth; i++)
     // {
     //     printf("     cut off %d branches at depth %d \n",branches_cut_off[i], i);
